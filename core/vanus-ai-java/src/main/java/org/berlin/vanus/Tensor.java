@@ -3,13 +3,24 @@ package org.berlin.vanus;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** Contiguous float32 CPU matrices and a reverse-mode differentiation tape. */
+/**
+ * Contiguous float32 CPU matrices and a reverse-mode differentiation tape.
+ * Each operation (add, matmul, attention, ...) builds a new Tensor that
+ * records its parent tensors and a closure to propagate gradients back to
+ * them; calling {@link #backward()} on a scalar result replays those
+ * closures in reverse topological order to fill every parent's {@code grad}.
+ */
 public final class Tensor {
+    // Thread-local switch so inference/generation code can disable graph building via noGrad.
     private static final ThreadLocal<Boolean> TRACK = ThreadLocal.withInitial(() -> true);
     public final int rows, cols;
+    // Row-major flattened matrix data.
     public final float[] data;
+    // Accumulated gradient buffer, same shape as data; null for tensors that don't require gradients.
     public final float[] grad;
+    // Tensors this one was computed from, used to walk the graph during backward().
     private final Tensor[] parents;
+    // Closure that adds this tensor's gradient contribution onto its parents' grad buffers.
     private Runnable backward = () -> {};
 
     private Tensor(int rows, int cols, boolean requiresGrad, Tensor... parents) {
@@ -20,28 +31,34 @@ public final class Tensor {
         this.parents = requiresGrad ? parents : new Tensor[0];
     }
 
+    /** Allocates a zero-filled tensor, optionally tracked for gradients (e.g. trainable parameters). */
     public static Tensor zeros(int rows, int cols, boolean requiresGrad) {
         return new Tensor(rows, cols, requiresGrad);
     }
+    /** Builds a non-trainable constant tensor from explicit row-major values. */
     public static Tensor of(int rows, int cols, float... values) {
         Tensor t = zeros(rows, cols, false);
         if (values.length != t.data.length) throw new IllegalArgumentException("Shape mismatch");
         System.arraycopy(values, 0, t.data, 0, values.length);
         return t;
     }
+    /** Creates a trainable parameter initialized with random Gaussian noise scaled by {@code std}. */
     public static Tensor parameter(int rows, int cols, Random random, float std) {
         Tensor t = zeros(rows, cols, true);
         for (int i = 0; i < t.data.length; i++) t.data[i] = (float) random.nextGaussian() * std;
         return t;
     }
+    /** Runs {@code body} with gradient tracking disabled, e.g. for inference/generation. */
     public static <T> T noGrad(Supplier<T> body) {
         boolean old = TRACK.get(); TRACK.set(false);
         try { return body.get(); } finally { TRACK.set(old); }
     }
+    // Allocates an output tensor for an op, requiring grad only if tracking is on and some parent requires it.
     private static Tensor result(int rows, int cols, Tensor... parents) {
         boolean track = TRACK.get() && Arrays.stream(parents).anyMatch(p -> p.grad != null);
         return new Tensor(rows, cols, track, parents);
     }
+    // Adds `value` into a parent's gradient buffer at index i, a no-op if that parent doesn't require grad.
     private static void accumulate(Tensor t, int i, float value) {
         if (t.grad != null) t.grad[i] += value;
     }
@@ -49,11 +66,13 @@ public final class Tensor {
         if (rows != b.rows || cols != b.cols) throw new IllegalArgumentException("Shape mismatch");
     }
     public void zeroGrad() { if (grad != null) Arrays.fill(grad, 0); }
+    /** Copies the data into a new, non-trainable tensor detached from the graph. */
     public Tensor detach() { return of(rows, cols, data); }
     public String shape() { return "[" + rows + ", " + cols + "]"; }
     public String dtype() { return "float32"; }
     public String device() { return "cpu"; }
 
+    /** Runs backpropagation from this scalar tensor, filling every ancestor tensor's {@code grad} buffer. */
     public void backward() {
         if (data.length != 1 || grad == null) throw new IllegalStateException("Expected differentiable scalar loss");
         List<Tensor> order = new ArrayList<>();
@@ -63,11 +82,13 @@ public final class Tensor {
         grad[0] = 1;
         for (int i = order.size() - 1; i >= 0; i--) order.get(i).backward.run();
     }
+    // Depth-first post-order traversal of the graph so parents precede children in `order`.
     private static void visit(Tensor t, Set<Tensor> seen, List<Tensor> order) {
         if (!seen.add(t)) return;
         for (Tensor parent : t.parents) visit(parent, seen, order);
         order.add(t);
     }
+    /** Element-wise addition. */
     public Tensor add(Tensor b) {
         sameShape(b); Tensor out = result(rows, cols, this, b);
         for (int i = 0; i < data.length; i++) out.data[i] = data[i] + b.data[i];
@@ -78,6 +99,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** Element-wise (Hadamard) multiplication. */
     public Tensor multiply(Tensor b) {
         sameShape(b); Tensor out = result(rows, cols, this, b);
         for (int i = 0; i < data.length; i++) out.data[i] = data[i] * b.data[i];
@@ -89,6 +111,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** Standard matrix multiplication: this[rows x cols] * b[cols x b.cols]. */
     public Tensor matmul(Tensor b) {
         if (cols != b.rows) throw new IllegalArgumentException("matmul: " + shape() + " x " + b.shape());
         Tensor out = result(rows, b.cols, this, b);
@@ -109,6 +132,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** Matrix transpose. */
     public Tensor transpose() {
         Tensor out = result(cols, rows, this);
         for (int i = 0; i < rows; i++) for (int j = 0; j < cols; j++) out.data[j * rows + i] = data[i * cols + j];
@@ -117,6 +141,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** Row lookup: gathers one embedding row per token ID from this tensor treated as an embedding table. */
     public Tensor embedding(int[] tokenIds) {
         int[] ids = tokenIds.clone();
         Tensor out = result(ids.length, cols, this);
@@ -129,6 +154,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** SiLU/Swish activation: x * sigmoid(x), applied element-wise. */
     public Tensor silu() {
         Tensor out = result(rows, cols, this);
         for (int i = 0; i < data.length; i++) out.data[i] = data[i] * sigmoid(data[i]);
@@ -142,6 +168,7 @@ public final class Tensor {
     }
     private static float sigmoid(float x) { return (float) (1 / (1 + Math.exp(-x))); }
 
+    /** Root-mean-square layer normalization per row, scaled by a learned per-column weight (no mean-centering, no bias). */
     public Tensor rmsNorm(Tensor weight, float epsilon) {
         if (weight.rows != 1 || weight.cols != cols || !(epsilon > 0)) throw new IllegalArgumentException("Invalid RMSNorm arguments");
         Tensor out = result(rows, cols, this, weight);
@@ -165,6 +192,7 @@ public final class Tensor {
         };
         return out;
     }
+    /** Rotary positional embedding: rotates each head's feature pairs by an angle proportional to sequence position. */
     public Tensor rope(int heads) {
         if (heads <= 0 || cols % heads != 0 || (cols / heads) % 2 != 0) throw new IllegalArgumentException("RoPE needs even head width");
         int width = cols / heads;
@@ -195,15 +223,18 @@ public final class Tensor {
         int n = q.rows, d = q.cols, width = d / heads;
         float scale = (float) (1 / Math.sqrt(width));
         Tensor out = result(n, d, q, k, v);
+        // Cached per-head, per-query, per-key attention probabilities, reused during backward.
         float[] probabilities = new float[Math.multiplyExact(heads, Math.multiplyExact(n, n))];
         for (int h = 0; h < heads; h++) for (int t = 0; t < n; t++) {
             int base = (h * n + t) * n;
             float max = Float.NEGATIVE_INFINITY;
+            // Causal mask: query t only attends to keys s <= t.
             for (int s = 0; s <= t; s++) {
                 float dot = 0;
                 for (int j = 0; j < width; j++) dot += q.data[t * d + h * width + j] * k.data[s * d + h * width + j];
                 probabilities[base + s] = dot * scale; max = Math.max(max, dot * scale);
             }
+            // Numerically-stable softmax over the allowed key positions.
             float total = 0;
             for (int s = 0; s <= t; s++) { probabilities[base + s] = (float) Math.exp(probabilities[base + s] - max); total += probabilities[base + s]; }
             for (int s = 0; s <= t; s++) {
@@ -225,6 +256,7 @@ public final class Tensor {
                     }
                     dot += probabilities[base + s] * dp[s];
                 }
+                // Softmax Jacobian-vector product, then propagate through the scaled dot product to q and k.
                 for (int s = 0; s <= t; s++) {
                     float ds = probabilities[base + s] * (dp[s] - dot) * scale;
                     for (int j = 0; j < width; j++) {
@@ -249,10 +281,12 @@ public final class Tensor {
         if (count == 0) throw new IllegalArgumentException("No supervised targets");
         final int denominator = count;
         Tensor out = result(1, 1, this);
+        // Cached softmax probabilities per row, reused as the basis for the backward gradient.
         float[] probabilities = new float[data.length];
         double loss = 0;
         for (int r = 0; r < rows; r++) {
             if (targets[r] < 0) continue;
+            // Numerically-stable log-sum-exp softmax cross entropy for this row's logits.
             float max = Float.NEGATIVE_INFINITY;
             for (int c = 0; c < cols; c++) max = Math.max(max, data[r * cols + c]);
             double sum = 0;
@@ -262,6 +296,7 @@ public final class Tensor {
         }
         out.data[0] = (float) (loss / denominator);
         if (out.grad != null) out.backward = () -> {
+            // Gradient of mean cross entropy w.r.t. logits is (softmax - one_hot(target)) / count.
             for (int r = 0; r < rows; r++) if (targets[r] >= 0) for (int c = 0; c < cols; c++)
                 accumulate(this, r * cols + c, out.grad[0] * (probabilities[r * cols + c] - (c == targets[r] ? 1 : 0)) / denominator);
         };

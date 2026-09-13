@@ -6,6 +6,24 @@ pretrained weights. This is a small educational ML core, not a complete PyTorch
 implementation or a claim that JVM
 transformers have never existed.
 
+## Is this a real LLM?
+
+Architecturally, yes: causal self-attention, RoPE, RMSNorm, SwiGLU, backprop
+through an autograd tape, AdamW, and autoregressive next-byte prediction via
+cross-entropy are the same pieces production transformers use (see
+Architecture below). Nothing special-cases words or does string matching;
+every response comes out of matrix multiplications over learned weights.
+
+What it is not is large. `tiny` has 18,656 parameters, 1 attention block, and
+trains on dozens of examples with a byte-level (not subword) tokenizer, versus
+billions of parameters and trillions of tokens for something like GPT or
+Llama. At this scale, the easiest thing for gradient descent to learn is
+memorizing exact training byte sequences, not generalizing across novel
+phrasing, so a heavily trained tiny model behaves like a lookup table for
+prompts it saw verbatim and produces noise for anything else. It is a genuine,
+fully-inspectable implementation of how an LLM works mechanically, not a
+smaller version of a production model's capabilities.
+
 ## Run
 
 Use JDK 21 exactly and sbt. Vanus checks the runtime version at startup and exits
@@ -21,11 +39,28 @@ sbt 'run train tiny data/greetings.tsv 300 checkpoints/custom.vanus'
 sbt 'run train 20m data/greetings.tsv 10 checkpoints/vanus20m.vanus'
 ```
 
-The demo trains from random weights for 200 steps on one greeting pair. This is
-memorization, not evidence of conversational generalization. Inference generates
-from learned logits; it contains no answer lookup. Optional demo arguments are
+The demo trains from random weights for 200 steps on Pride and Prejudice sentence
+pairs (`data/pride-and-prejudice.tsv`), filtered down to whichever pairs fit the
+tiny model's byte context. This is memorization on a tiny model, not evidence of
+conversational generalization. Inference generates from learned logits; it
+contains no answer lookup. Optional demo arguments are
 `demo <steps> <checkpoint>`. Custom data is UTF-8 prompt/answer pairs separated by
 one literal tab, one pair per line. Empty fields and overlong examples fail.
+
+`data/dictionary-raw.tsv` is a small word/definition/example source (one
+`word<TAB>definition<TAB>example` entry per line). `data/dictionary_to_tsv.py`
+turns it into `data/dictionary.tsv` prompt/answer pairs ("What does X mean?" and
+"Use X in a sentence.") the same way `data/book_to_tsv.py` turns a raw novel into
+sentence-continuation pairs. `demo2dict` trains on `data/dictionary2.tsv`
+(generated from `data/dictionary-raw2.tsv`, a smaller word list) so it stays
+inside `tiny`'s context and converges faster than the full dictionary set:
+
+```sh
+python3 data/dictionary_to_tsv.py data/dictionary-raw.tsv data/dictionary.tsv
+python3 data/dictionary_to_tsv.py data/dictionary-raw2.tsv data/dictionary2.tsv
+sbt 'run train tiny data/dictionary.tsv 300 checkpoints/dictionary.vanus'
+sbt 'run demo2dict'
+```
 
 The 20M command is a smoke run, not sufficient training. Start with tiny: scalar
 CPU loops at full size are slow. `chat` is single-turn greedy completion. The Java
