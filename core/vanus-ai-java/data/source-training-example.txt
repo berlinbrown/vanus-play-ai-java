@@ -1,0 +1,60 @@
+Vanus training-data example: teaching a model to answer a source-code request
+
+This file is explanatory only. It is not loaded by Main.scala and does not change
+how the current model trains. The current trainer expects prompt<TAB>answer pairs
+in a TSV file. The examples below show what training data could look like for a
+request to write a Java Hello World program.
+
+1. Human-readable source entry
+
+Prompt:
+write a java program, hello world
+
+Answer:
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+
+2. Trainer input as one prompt<TAB>answer pair
+
+write a java program, hello world	public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}
+
+3. More prompt variations for the same answer
+
+write a java hello world program	public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}
+create a Hello World program in Java	public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}
+show me Java code that prints Hello World	public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}
+
+4. A more useful multi-example source dataset
+
+write a java program, hello world	public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}
+write a java program that adds two numbers	public class AddNumbers {\n    public static void main(String[] args) {\n        int first = 2;\n        int second = 3;\n        System.out.println(first + second);\n    }\n}
+write a java method that greets a name	public static String greet(String name) {\n    return "Hello, " + name + "!";\n}
+write a java loop from one to three	for (int number = 1; number <= 3; number++) {\n    System.out.println(number);\n}
+
+5. What the byte-level model sees
+
+The tokenizer does not see Java syntax as special tokens. It sees UTF-8 bytes.
+For the prompt, the sequence is conceptually:
+
+[BOS] [USER] w r i t e ... h e l l o [ASSISTANT]
+
+The answer is learned one byte at a time:
+
+p -> u -> b -> l -> i -> c -> space -> c -> l -> a -> s -> s -> ...
+
+A small model may memorize the exact request and reproduce the code. It will not
+reliably understand a new request such as "make a Java greeting app" unless that
+phrasing is also represented in the training data. A larger model trained on
+many varied code examples can learn stronger relationships between prompts,
+Java syntax, and common programming patterns.
+
+6. Important limitation for the current model
+
+A Java code answer is much longer than the tiny model's 128-byte context. These
+examples are therefore conceptual input-data examples, not a claim that the
+current tiny configuration can train on the full answers unchanged. A practical
+code-training experiment would need shorter answers, a larger context, or model
+changes. This file intentionally makes no code changes.

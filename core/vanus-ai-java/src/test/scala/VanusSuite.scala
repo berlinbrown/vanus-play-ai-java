@@ -122,3 +122,36 @@ class VanusSuite extends munit.FunSuite:
     intercept[IllegalArgumentException](new Transformer(config, 0).forward(new Array[Int](65)))
     intercept[IllegalArgumentException](new ModelConfig(260, 9, 16, 1, 2, 64))
   }
+
+  test("generation diagnostics preserve decoding and report context exhaustion") {
+    val model = new Transformer(new ModelConfig(260, 8, 16, 1, 2, 6), 5)
+    // Equal logits choose byte zero deterministically, avoiding an early EOS.
+    model.parameters().asScala.foreach(p => java.util.Arrays.fill(p.data, 0f))
+    val events = new java.util.ArrayList[Transformer.GenerationStep]()
+    val result = model.generate("a", 10, 0, 1, 42, step => { events.add(step); () })
+    assertEquals(result, model.generate("a", 10, 0, 1, 42))
+    assertEquals(events.size(), 2)
+    assertEquals(events.get(1).stopReason(), "context limit")
+    assertEquals(events.get(0).contextUsed(), 4)
+    assertEqualsDouble(events.get(0).candidates().get(0).probability(), 1.0 / 257, 1e-9)
+    assertEquals(events.get(1).text(), result)
+    intercept[IllegalArgumentException](model.generate("abc", 1, 0, 1, 42))
+  }
+
+  test("generation rejects nonfinite predictions") {
+    val model = new Transformer(config, 5)
+    model.parameters().iterator().next().data(0) = Float.NaN
+    intercept[IllegalStateException](model.generate("a", 2, 0, 1, 42))
+  }
+
+  test("200K preset has the stated capacity and finite training gradients") {
+    val model = new Transformer(ModelConfig.vanus200k(), 42)
+    assertEquals(model.config.parameterCount(), 200544L)
+    assertEquals(model.parameters().asScala.map(_.data.length.toLong).sum, 200544L)
+    assertEquals(model.config.context(), ModelConfig.tiny().context())
+    val loss = model.forward(Array(256, 258, 97, 259)).crossEntropy(Array(-1, -1, -1, 257))
+    assert(java.lang.Float.isFinite(loss.data(0)))
+    loss.backward()
+    assert(model.parameters().asScala.forall(p => p.grad.forall(java.lang.Float.isFinite)))
+    assert(model.parameters().asScala.exists(p => p.grad.exists(_ != 0)))
+  }

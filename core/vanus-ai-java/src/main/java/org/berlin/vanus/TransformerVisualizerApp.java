@@ -1,6 +1,17 @@
 package org.berlin.vanus;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import java.awt.*;
 import java.util.Set;
 
@@ -20,11 +31,22 @@ public final class TransformerVisualizerApp {
         frame.add(parametersPanel(model.config, datasetName, datasetSize, checkpointPath), BorderLayout.NORTH);
 
         NetworkVisualizerPanel visualizer = new NetworkVisualizerPanel(model.config);
-        frame.add(visualizer, BorderLayout.CENTER);
+        JTextArea trace = new JTextArea(12, 80);
+        trace.setEditable(false);
+        trace.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        trace.setText("Enter a prompt to inspect actual next-byte decisions.\n"
+                + "Each step runs embedding → causal attention → SwiGLU → logits → next byte.\n"
+                + "Probabilities cover 256 byte values + EOS, before sampling filters.\n"
+                + "The network lines are schematic, not measured attention weights.\n");
+        JScrollPane traceScroll = new JScrollPane(trace);
+        traceScroll.setBorder(BorderFactory.createTitledBorder("Live decoding: top 5 next-byte candidates"));
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(visualizer), traceScroll);
+        split.setResizeWeight(0.55);
+        frame.add(split, BorderLayout.CENTER);
 
-        frame.add(chatPanel(model, visualizer, knownPrompts), BorderLayout.SOUTH);
+        frame.add(chatPanel(model, visualizer, knownPrompts, trace), BorderLayout.SOUTH);
 
-        frame.setSize(920, 640);
+        frame.setSize(1180, 880);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
@@ -49,7 +71,14 @@ public final class TransformerVisualizerApp {
         return area;
     }
 
-    private static JComponent chatPanel(Transformer model, NetworkVisualizerPanel visualizer, Set<String> knownPrompts) {
+    private static String tokenLabel(int id) {
+        if (id == ByteTokenizer.EOS) return "<EOS>";
+        if (id == 32) return "<space>";
+        if (id >= 33 && id <= 126) return "'" + (char) id + "'";
+        return String.format("0x%02X", id);
+    }
+
+    private static JComponent chatPanel(Transformer model, NetworkVisualizerPanel visualizer, Set<String> knownPrompts, JTextArea trace) {
         JTextArea transcript = new JTextArea(8, 70);
         transcript.setEditable(false);
         transcript.setLineWrap(true);
@@ -65,18 +94,30 @@ public final class TransformerVisualizerApp {
             input.setEnabled(false); send.setEnabled(false);
             transcript.append("You: " + prompt + "\n");
             input.setText("");
+            trace.setText("Prompt token IDs: " + java.util.Arrays.toString(new ByteTokenizer().prompt(prompt)) + "\n");
             visualizer.startActivity();
-            new SwingWorker<String, Void>() {
+            new SwingWorker<String, Transformer.GenerationStep>() {
                 // Greedy decoding for deterministic, reproducible recall matching the `chat` CLI command.
-                @Override protected String doInBackground() { return model.generate(prompt, 150, 0, 1, 42); }
+                @Override protected String doInBackground() { return model.generate(prompt, 150, 0, 1, 42, step -> publish(step)); }
+                @Override protected void process(java.util.List<Transformer.GenerationStep> steps) {
+                    for (Transformer.GenerationStep step : steps) {
+                        StringBuilder line = new StringBuilder(String.format("%3d | context %3d/%d | chose %-10s | ",
+                                step.step(), step.contextUsed(), model.config.context(), tokenLabel(step.token())));
+                        for (Transformer.Candidate candidate : step.candidates())
+                            line.append(String.format("%s %.1f%%  ", tokenLabel(candidate.token()), 100 * candidate.probability()));
+                        if (!step.stopReason().isEmpty()) line.append(" STOP: ").append(step.stopReason());
+                        trace.append(line + "\n");
+                    }
+                    visualizer.showStep(steps.get(steps.size() - 1));
+                    trace.setCaretPosition(trace.getDocument().getLength());
+                }
                 @Override protected void done() {
-                    // This model only memorizes exact training byte sequences; it does not understand or
-                    // generalize the question, so recall quality hinges entirely on an exact phrasing match.
+                    // Training membership is useful context, not a guarantee of correct recall.
                     String note = knownPrompts.contains(prompt)
-                            ? "[this exact prompt was in the training data \u2192 greedy decode replays the memorized answer]"
-                            : "[this prompt was NOT seen verbatim during training \u2192 the model is guessing byte-by-byte; expect noise]";
+                            ? "[Training prompt: recall depends on what the model learned.]"
+                            : "[Unseen prompt: this tiny model may generalize poorly.]";
                     try { transcript.append("Vanus: " + get() + "\n" + note + "\n\n"); }
-                    catch (Exception e) { transcript.append("Vanus: [error: " + e.getMessage() + "]\n\n"); }
+                    catch (Exception e) { transcript.append("Vanus: [error: " + (e.getCause() == null ? e.getMessage() : e.getCause().getMessage()) + "]\n\n"); }
                     visualizer.stopActivity();
                     input.setEnabled(true); send.setEnabled(true); input.requestFocusInWindow();
                     transcript.setCaretPosition(transcript.getDocument().getLength());
@@ -91,7 +132,14 @@ public final class TransformerVisualizerApp {
         inputRow.add(send, BorderLayout.EAST);
 
         JPanel panel = new JPanel(new BorderLayout(4, 4));
-        panel.setBorder(BorderFactory.createTitledBorder("Chat (Pride and Prejudice model)"));
+        panel.setBorder(BorderFactory.createTitledBorder("Chat — deterministic greedy decoding"));
+        JComboBox<String> examples = new JComboBox<>(knownPrompts.stream().sorted().toArray(String[]::new));
+        examples.setSelectedIndex(-1);
+        examples.setBorder(BorderFactory.createTitledBorder("Try a training prompt, then reword it"));
+        examples.addActionListener(e -> {
+            if (examples.getSelectedItem() != null && input.isEnabled()) input.setText((String) examples.getSelectedItem());
+        });
+        panel.add(examples, BorderLayout.NORTH);
         panel.add(transcriptScroll, BorderLayout.CENTER);
         panel.add(inputRow, BorderLayout.SOUTH);
         return panel;
@@ -102,20 +150,26 @@ public final class TransformerVisualizerApp {
 final class NetworkVisualizerPanel extends JPanel {
     private final ModelConfig config;
     private final int layers;
-    private final Timer timer;
+    private String progress = "Ready — connections show sampled dimensions, not individual parameters.";
     private int activeStage = -1;
     private boolean running;
 
     NetworkVisualizerPanel(ModelConfig config) {
         this.config = config;
         this.layers = config.layers();
-        setPreferredSize(new Dimension(880, 340));
+        setPreferredSize(new Dimension(Math.max(1080, (layers + 2) * 260), 320));
         setBackground(Color.WHITE);
-        timer = new Timer(220, e -> { activeStage = (activeStage + 1) % (layers + 2); repaint(); });
+
     }
 
-    void startActivity() { running = true; activeStage = 0; timer.start(); }
-    void stopActivity() { running = false; timer.stop(); activeStage = -1; repaint(); }
+    void startActivity() { running = true; activeStage = -1; progress = "Computing next-byte predictions…"; repaint(); }
+    void showStep(Transformer.GenerationStep step) {
+        activeStage = layers + 1;
+        progress = "Byte step " + step.step() + " | " + step.contextUsed() + "/" + config.context()
+                + " context positions processed | " + (step.stopReason().isEmpty() ? "decoding" : step.stopReason());
+        repaint();
+    }
+    void stopActivity() { running = false; activeStage = -1; repaint(); }
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -123,19 +177,22 @@ final class NetworkVisualizerPanel extends JPanel {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+        g2.setColor(Color.DARK_GRAY);
+        g2.drawString(progress, 20, 24);
+        g2.drawString("One full forward pass per generated byte. Attention can only use earlier/current positions.", 20, 44);
         int stages = layers + 2;
         String[] labels = new String[stages];
-        labels[0] = "Embedding";
-        for (int i = 1; i <= layers; i++) labels[i] = "Block " + i + "\nNorm\u2192Attn\u2192Norm\u2192FFN";
-        labels[stages - 1] = "Final Norm\n+ Output";
+        labels[0] = "Byte IDs → Embedding\n" + config.width() + " values / position";
+        for (int i = 1; i <= layers; i++) labels[i] = "Block " + i + "\nRMSNorm → Q / K / V\nRoPE → causal attention\n" + config.heads() + " heads → residual add\nRMSNorm → SwiGLU\nhidden " + config.hidden() + " → residual add";
+        labels[stages - 1] = "Final RMSNorm\nTied output projection\n" + config.vocabulary() + " logits → next byte";
         // Node counts per stage stand in for real dimensions (attention heads inside blocks,
         // a capped sample of embedding/output width elsewhere) so the fan-out is not misleading noise.
         int[] nodeCounts = new int[stages];
-        nodeCounts[0] = Math.min(6, config.width());
-        for (int i = 1; i <= layers; i++) nodeCounts[i] = Math.min(8, config.heads());
-        nodeCounts[stages - 1] = Math.min(6, config.width());
+        nodeCounts[0] = Math.min(16, config.width());
+        for (int i = 1; i <= layers; i++) nodeCounts[i] = Math.min(16, config.width());
+        nodeCounts[stages - 1] = Math.min(16, config.width());
 
-        int boxW = 150, boxH = 56;
+        int boxW = 180, boxH = 160;
         int gap = stages > 1 ? (getWidth() - 40 - boxW) / (stages - 1) : 0;
         int y = getHeight() / 2 - boxH / 2;
         int[] centersX = new int[stages];

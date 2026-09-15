@@ -1,0 +1,25 @@
+{
+  "context": 128,
+  "source": "https://huggingface.co/datasets/roskoN/dailydialog",
+  "splits": {
+    "train": {
+      "dialogues": 11118,
+      "adjacent_pairs": 76052,
+      "retained_pairs": 45530,
+      "sha256": "c5179ab5a9a86a77b9d29114087c6b82cc4cb366abea25a43a0c24be761133f7"
+    },
+    "validation": {
+      "dialogues": 1000,
+      "adjacent_pairs": 7069,
+      "retained_pairs": 3411,
+      "sha256": "1dbcb00a0b4fe709788ce6604b561ba76557c88fe41f049d7899287838f0ec6a"
+    },
+    "test": {
+      "dialogues": 1000,
+      "adjacent_pairs": 6740,
+      "retained_pairs": 3095,
+      "sha256": "cfffc0bab93a3697c2562a9ee35c4533f0de2a93e86a4e4d3ea45cbde4bea00f"
+    }
+  },
+  "starter_pairs": 300
+}

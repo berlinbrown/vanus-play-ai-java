@@ -28,6 +28,7 @@ def parse_entries(lines: list[str]) -> list[tuple[str, str, str]]:
 
 def build_pairs(entries: list[tuple[str, str, str]], max_pair_bytes: int) -> list[tuple[str, str]]:
     pairs = []
+    seen = set()
     for word, definition, example in entries:
         # Every one of these phrasings is a distinct byte sequence the model must see during
         # training to answer it; there is no shortcut that lets it infer the rest on its own.
@@ -37,15 +38,23 @@ def build_pairs(entries: list[tuple[str, str, str]], max_pair_bytes: int) -> lis
             f"What does {word}",
             f"what does {word} mean?",
             word,
+            f"Define {word}.",
+            f"What is the meaning of {word}?",
         ]
+        # Prefix prompts teach the current byte-level model what to do with partial words.
+        definition_prompts.extend(word[:length] for length in range(1, len(word) + 1))
+        definition_prompts.extend(word[:length].capitalize() for length in range(1, len(word) + 1))
         example_prompts = [
             f"Use {word} in a sentence.",
             f"Use {word} in a sentence",
             f"{word} in a sentence",
+            f"Give me an example of {word}.",
         ]
         candidates = [(p, definition) for p in definition_prompts] + [(p, example) for p in example_prompts]
         for prompt, answer in candidates:
-            if len((prompt + answer).encode("utf-8")) <= max_pair_bytes:
+            pair = (prompt, answer)
+            if pair not in seen and len((prompt + answer).encode("utf-8")) <= max_pair_bytes:
+                seen.add(pair)
                 pairs.append((prompt, answer))
     return pairs
 

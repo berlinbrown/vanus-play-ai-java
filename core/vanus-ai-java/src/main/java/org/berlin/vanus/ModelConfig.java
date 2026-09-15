@@ -14,6 +14,10 @@ public record ModelConfig(int vocabulary, int width, int hidden, int layers, int
     }
     /** Minimal configuration for fast smoke tests. */
     public static ModelConfig tiny() { return new ModelConfig(260, 32, 64, 1, 4, 128); }
+    /** Small dictionary configuration with extra capacity for varied and partial prompts. */
+    public static ModelConfig dictionary() { return new ModelConfig(260, 64, 128, 2, 4, 256); }
+    /** About 200K parameters; same context as tiny for controlled comparisons. */
+    public static ModelConfig vanus200k() { return new ModelConfig(260, 96, 176, 2, 4, 128); }
     /** ~20M parameter preset used for real training/generation runs. */
     public static ModelConfig vanus20m() { return new ModelConfig(260, 448, 1280, 8, 8, 256); }
     /** Estimated total trainable parameter count: embedding table plus per-layer attention and SwiGLU weights. */

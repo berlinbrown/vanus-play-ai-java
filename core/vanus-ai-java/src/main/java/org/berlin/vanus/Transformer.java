@@ -3,6 +3,7 @@ package org.berlin.vanus;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Vanus decoder: pre-RMSNorm, RoPE, multi-head attention, SwiGLU, tied output.
@@ -110,6 +111,16 @@ public final class Transformer {
     public String generate(String prompt, int maxTokens, double temperature, int topK, long seed) {
         if (maxTokens < 0 || !Double.isFinite(temperature) || temperature < 0 || topK < 1 || topK > config.vocabulary())
             throw new IllegalArgumentException("Invalid generation options");
+        return generate(prompt, maxTokens, temperature, topK, seed, null);
+    }
+
+    /** Immutable per-byte diagnostics; probabilities precede temperature/top-k filtering. */
+    public record Candidate(int token, double probability) {}
+    public record GenerationStep(int step, int contextUsed, int token, List<Candidate> candidates, String text, String stopReason) {}
+
+    public String generate(String prompt, int maxTokens, double temperature, int topK, long seed, Consumer<GenerationStep> observer) {
+        if (maxTokens < 0 || !Double.isFinite(temperature) || temperature < 0 || topK < 1 || topK > config.vocabulary())
+            throw new IllegalArgumentException("Invalid generation options");
         ByteTokenizer tokenizer = new ByteTokenizer();
         int[] prefix = tokenizer.prompt(prompt);
         if (prefix.length >= config.context())
@@ -119,11 +130,18 @@ public final class Transformer {
             int length = prefix.length;
             Random rng = new Random(seed);
             for (int step = 0; step < maxTokens && length < sequence.length; step++) {
+                if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("Generation cancelled");
                 Tensor logits = forward(Arrays.copyOf(sequence, length));
                 int next = sample(logits, temperature, topK, rng);
-                if (next == ByteTokenizer.EOS)
-                    break;
-                sequence[length++] = next;
+                int used = length;
+                if (next != ByteTokenizer.EOS) sequence[length++] = next;
+                if (observer != null) {
+                    String stop = next == ByteTokenizer.EOS ? "EOS" : length == sequence.length ? "context limit"
+                            : step + 1 == maxTokens ? "token limit" : "";
+                    observer.accept(new GenerationStep(step + 1, used, next, candidates(logits),
+                            tokenizer.decode(Arrays.copyOfRange(sequence, prefix.length, length)), stop));
+                }
+                if (next == ByteTokenizer.EOS) break;
             }
             return tokenizer.decode(Arrays.copyOfRange(sequence, prefix.length, length));
         });
@@ -137,6 +155,8 @@ public final class Transformer {
         for (int i = 0; i < 256; i++)
             ids[i] = i;
         ids[256] = ByteTokenizer.EOS;
+        for (int id : ids)
+            if (!Float.isFinite(logits.data[offset + id])) throw new IllegalStateException("Nonfinite logits; generation aborted");
         Arrays.sort(ids, (a, b) -> Float.compare(logits.data[offset + b], logits.data[offset + a]));
         if (temperature == 0)
             return ids[0];
@@ -144,7 +164,7 @@ public final class Transformer {
         double[] weights = new double[count];
         double total = 0;
         for (int i = 0; i < count; i++)
-            total += weights[i] = Math.exp((logits.data[offset + ids[i]] - logits.data[offset + ids[0]]) / temperature);
+            total += weights[i] = Math.exp(((double) logits.data[offset + ids[i]] - logits.data[offset + ids[0]]) / temperature);
         double draw = random.nextDouble() * total;
         for (int i = 0; i < count; i++) {
             draw -= weights[i];
@@ -152,6 +172,19 @@ public final class Transformer {
                 return ids[i];
         }
         return ids[count - 1];
+    }
+
+    private static List<Candidate> candidates(Tensor logits) {
+        int offset = (logits.rows - 1) * logits.cols;
+        List<Integer> ids = new ArrayList<>();
+        for (int i = 0; i < 256; i++) ids.add(i);
+        ids.add(ByteTokenizer.EOS);
+        ids.sort((a, b) -> Float.compare(logits.data[offset + b], logits.data[offset + a]));
+        double max = logits.data[offset + ids.get(0)], total = 0;
+        for (int id : ids) total += Math.exp(logits.data[offset + id] - max);
+        List<Candidate> result = new ArrayList<>();
+        for (int id : ids.subList(0, 5)) result.add(new Candidate(id, Math.exp(logits.data[offset + id] - max) / total));
+        return List.copyOf(result);
     }
 
     /**

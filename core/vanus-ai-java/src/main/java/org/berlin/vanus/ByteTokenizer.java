@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Vocabulary-free tokenizer that maps text directly to raw UTF-8 byte
- * values (IDs 0..255). Five extra IDs (256..260) are reserved for
+ * values (IDs 0..255). Four extra IDs (256..259) are reserved for
  * structural/control tokens so they can never collide with actual text.
  */
 public final class ByteTokenizer {
