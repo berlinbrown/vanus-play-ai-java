@@ -28,18 +28,18 @@ public final class TransformerVisualizerApp {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout(8, 8));
 
-        frame.add(parametersPanel(model.config, datasetName, datasetSize, checkpointPath), BorderLayout.NORTH);
+        frame.add(parametersPanel(model.config, model.tokenizer(), datasetName, datasetSize, checkpointPath), BorderLayout.NORTH);
 
         NetworkVisualizerPanel visualizer = new NetworkVisualizerPanel(model.config);
         JTextArea trace = new JTextArea(12, 80);
         trace.setEditable(false);
         trace.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        trace.setText("Enter a prompt to inspect actual next-byte decisions.\n"
-                + "Each step runs embedding → causal attention → SwiGLU → logits → next byte.\n"
-                + "Probabilities cover 256 byte values + EOS, before sampling filters.\n"
+        trace.setText("Enter a prompt to inspect actual next-token decisions.\n"
+                + "Each step runs embedding → causal attention → SwiGLU → logits → next token.\n"
+                + "Probabilities cover text tokens plus EOS, before sampling filters.\n"
                 + "The network lines are schematic, not measured attention weights.\n");
         JScrollPane traceScroll = new JScrollPane(trace);
-        traceScroll.setBorder(BorderFactory.createTitledBorder("Live decoding: top 5 next-byte candidates"));
+        traceScroll.setBorder(BorderFactory.createTitledBorder("Live decoding: top 5 next-token candidates"));
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(visualizer), traceScroll);
         split.setResizeWeight(0.55);
         frame.add(split, BorderLayout.CENTER);
@@ -51,7 +51,7 @@ public final class TransformerVisualizerApp {
         frame.setVisible(true);
     }
 
-    private static JComponent parametersPanel(ModelConfig config, String datasetName, int datasetSize, String checkpointPath) {
+    private static JComponent parametersPanel(ModelConfig config, TextTokenizer tokenizer, String datasetName, int datasetSize, String checkpointPath) {
         long embeddingParams = (long) config.vocabulary() * config.width();
         long perBlockParams = 4L * config.width() * config.width() + 3L * config.width() * config.hidden() + 2L * config.width();
         long blockParams = (long) config.layers() * perBlockParams;
@@ -60,10 +60,10 @@ public final class TransformerVisualizerApp {
 
         JTextArea area = new JTextArea(String.format(
                 "Dataset: %s (%,d training pairs)   Checkpoint: %s%n" +
-                "Vocabulary=%d  Width=%d  Hidden=%d  Layers=%d  Heads=%d  Context=%d bytes%n" +
+                "Tokenizer=%s  Vocabulary=%d  Width=%d  Hidden=%d  Layers=%d  Heads=%d  Context=%d tokens%n" +
                 "Parameters: embedding=%,d  block=%,d x %d layers=%,d  norm=%,d  TOTAL=%,d",
                 datasetName, datasetSize, checkpointPath,
-                config.vocabulary(), config.width(), config.hidden(), config.layers(), config.heads(), config.context(),
+                tokenizer.kind(), config.vocabulary(), config.width(), config.hidden(), config.layers(), config.heads(), config.context(),
                 embeddingParams, perBlockParams, config.layers(), blockParams, normParams, total));
         area.setEditable(false);
         area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
@@ -75,7 +75,31 @@ public final class TransformerVisualizerApp {
         if (id == ByteTokenizer.EOS) return "<EOS>";
         if (id == 32) return "<space>";
         if (id >= 33 && id <= 126) return "'" + (char) id + "'";
+        if (id >= ByteTokenizer.VOCABULARY) return "<tok:" + id + ">";
         return String.format("0x%02X", id);
+    }
+
+    /** Randomly select words, preserving their source order and UTF-8 context budget. */
+    static String selfTalkPrompt(String reply, int maxBytes, java.util.Random random) {
+        if (maxBytes < 5) throw new IllegalArgumentException("Self-talk needs room for hello");
+        var matcher = java.util.regex.Pattern.compile("[\\p{L}\\p{N}]+(?:['’][\\p{L}\\p{N}]+)*").matcher(reply);
+        java.util.List<String> words = new java.util.ArrayList<>();
+        while (matcher.find()) {
+            String word = matcher.group();
+            if (word.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= maxBytes) words.add(word);
+        }
+        if (words.isEmpty()) return "hello";
+        int forced = random.nextInt(words.size()), used = 0;
+        StringBuilder prompt = new StringBuilder();
+        for (int i = 0; i < words.size(); i++) {
+            if (i != forced && !random.nextBoolean()) continue;
+            String word = words.get(i);
+            int bytes = word.getBytes(java.nio.charset.StandardCharsets.UTF_8).length + (used == 0 ? 0 : 1);
+            if (used + bytes > maxBytes) continue;
+            if (used > 0) prompt.append(' ');
+            prompt.append(word); used += bytes;
+        }
+        return prompt.isEmpty() ? words.get(forced) : prompt.toString();
     }
 
     private static JComponent chatPanel(Transformer model, NetworkVisualizerPanel visualizer, Set<String> knownPrompts, JTextArea trace) {
@@ -88,18 +112,50 @@ public final class TransformerVisualizerApp {
         JTextField input = new JTextField();
         JButton send = new JButton("Send");
 
-        Runnable submit = () -> {
+        JButton selfTalk = new JButton("Talk to itself");
+        javax.swing.JLabel status = new javax.swing.JLabel("Self-talk off");
+        class Conversation {
+            boolean automatic, busy, closed;
+            int turn;
+            String next = "hello";
+            final java.util.Random random = new java.util.Random();
+            final javax.swing.Timer timer = new javax.swing.Timer(2000, e -> {
+                if (!busy && automatic && !closed) { input.setText(next); submit(); }
+                else if (automatic) status.setText("Still generating; waiting for the next 2-second tick");
+            });
+            void controls() {
+                input.setEnabled(!busy && !automatic);
+                send.setEnabled(!busy && !automatic);
+                selfTalk.setEnabled(automatic || !busy);
+                selfTalk.setText(automatic ? "Stop self-talk" : "Talk to itself");
+            }
+            void toggle() {
+                if (automatic) {
+                    automatic = false; timer.stop();
+                    status.setText(busy ? "Stopping after current reply" : "Self-talk off");
+                } else if (!busy && !closed) {
+                    automatic = true; turn = 0; next = "hello";
+                    input.setText(next); timer.start(); submit();
+                }
+                controls();
+            }
+            void submit() {
+            if (busy || closed) return;
             String prompt = input.getText().trim();
             if (prompt.isEmpty()) return;
-            input.setEnabled(false); send.setEnabled(false);
-            transcript.append("You: " + prompt + "\n");
+            busy = true; controls();
+            boolean automaticTurn = automatic;
+            String stamp = java.time.LocalTime.now().withNano(0).toString();
+            transcript.append((automaticTurn ? "Self-talk #" + (++turn) + " [" + stamp + "]" : "You") + ": " + prompt + "\n");
+            if (automaticTurn) status.setText("Generating self-talk reply " + turn);
             input.setText("");
-            trace.setText("Prompt token IDs: " + java.util.Arrays.toString(new ByteTokenizer().prompt(prompt)) + "\n");
+            trace.setText("Prompt token IDs: " + java.util.Arrays.toString(model.tokenizer().prompt(prompt)) + "\n");
             visualizer.startActivity();
             new SwingWorker<String, Transformer.GenerationStep>() {
                 // Greedy decoding for deterministic, reproducible recall matching the `chat` CLI command.
                 @Override protected String doInBackground() { return model.generate(prompt, 150, 0, 1, 42, step -> publish(step)); }
                 @Override protected void process(java.util.List<Transformer.GenerationStep> steps) {
+                    if (closed) return;
                     for (Transformer.GenerationStep step : steps) {
                         StringBuilder line = new StringBuilder(String.format("%3d | context %3d/%d | chose %-10s | ",
                                 step.step(), step.contextUsed(), model.config.context(), tokenLabel(step.token())));
@@ -116,20 +172,38 @@ public final class TransformerVisualizerApp {
                     String note = knownPrompts.contains(prompt)
                             ? "[Training prompt: recall depends on what the model learned.]"
                             : "[Unseen prompt: this tiny model may generalize poorly.]";
-                    try { transcript.append("Vanus: " + get() + "\n" + note + "\n\n"); }
-                    catch (Exception e) { transcript.append("Vanus: [error: " + (e.getCause() == null ? e.getMessage() : e.getCause().getMessage()) + "]\n\n"); }
+                    if (closed) return;
+                    try {
+                        String reply = get();
+                        transcript.append("Vanus: " + reply + "\n" + note + "\n\n");
+                        if (automaticTurn && automatic) {
+                            next = selfTalkPrompt(reply, model.config.context() - 4, random);
+                            input.setText(next);
+                            status.setText("Next 2-second tick: " + next);
+                        }
+                    }
+                    catch (Exception e) { automatic = false; timer.stop(); status.setText("Self-talk stopped: generation error"); transcript.append("Vanus: [error: " + (e.getCause() == null ? e.getMessage() : e.getCause().getMessage()) + "]\n\n"); }
                     visualizer.stopActivity();
-                    input.setEnabled(true); send.setEnabled(true); input.requestFocusInWindow();
+                    busy = false; controls();
+                    if (!automatic) { status.setText("Self-talk off"); input.requestFocusInWindow(); }
+                    // Bound memory while the autonomous loop runs for long periods.
+                    if (transcript.getDocument().getLength() > 60000)
+                        transcript.replaceRange("", 0, transcript.getDocument().getLength() - 40000);
                     transcript.setCaretPosition(transcript.getDocument().getLength());
                 }
             }.execute();
-        };
-        send.addActionListener(e -> submit.run());
-        input.addActionListener(e -> submit.run());
+            }
+        }
+        Conversation conversation = new Conversation();
+        send.addActionListener(e -> conversation.submit());
+        input.addActionListener(e -> conversation.submit());
+        selfTalk.addActionListener(e -> conversation.toggle());
 
         JPanel inputRow = new JPanel(new BorderLayout(4, 4));
         inputRow.add(input, BorderLayout.CENTER);
-        inputRow.add(send, BorderLayout.EAST);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        buttons.add(send); buttons.add(selfTalk);
+        inputRow.add(buttons, BorderLayout.EAST);
 
         JPanel panel = new JPanel(new BorderLayout(4, 4));
         panel.setBorder(BorderFactory.createTitledBorder("Chat — deterministic greedy decoding"));
@@ -141,7 +215,17 @@ public final class TransformerVisualizerApp {
         });
         panel.add(examples, BorderLayout.NORTH);
         panel.add(transcriptScroll, BorderLayout.CENTER);
-        panel.add(inputRow, BorderLayout.SOUTH);
+        JPanel bottom = new JPanel(new BorderLayout(4, 4));
+        bottom.add(status, BorderLayout.NORTH);
+        bottom.add(inputRow, BorderLayout.SOUTH);
+        panel.add(bottom, BorderLayout.SOUTH);
+        panel.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.DISPLAYABILITY_CHANGED) != 0 && !panel.isDisplayable()) {
+                conversation.closed = true;
+                conversation.automatic = false;
+                conversation.timer.stop();
+            }
+        });
         return panel;
     }
 }
@@ -162,10 +246,10 @@ final class NetworkVisualizerPanel extends JPanel {
 
     }
 
-    void startActivity() { running = true; activeStage = -1; progress = "Computing next-byte predictions…"; repaint(); }
+    void startActivity() { running = true; activeStage = -1; progress = "Computing next-token predictions…"; repaint(); }
     void showStep(Transformer.GenerationStep step) {
         activeStage = layers + 1;
-        progress = "Byte step " + step.step() + " | " + step.contextUsed() + "/" + config.context()
+        progress = "Token step " + step.step() + " | " + step.contextUsed() + "/" + config.context()
                 + " context positions processed | " + (step.stopReason().isEmpty() ? "decoding" : step.stopReason());
         repaint();
     }
@@ -179,12 +263,12 @@ final class NetworkVisualizerPanel extends JPanel {
 
         g2.setColor(Color.DARK_GRAY);
         g2.drawString(progress, 20, 24);
-        g2.drawString("One full forward pass per generated byte. Attention can only use earlier/current positions.", 20, 44);
+        g2.drawString("One full forward pass per generated token. Attention can only use earlier/current positions.", 20, 44);
         int stages = layers + 2;
         String[] labels = new String[stages];
-        labels[0] = "Byte IDs → Embedding\n" + config.width() + " values / position";
+        labels[0] = "Token IDs → Embedding\n" + config.width() + " values / position";
         for (int i = 1; i <= layers; i++) labels[i] = "Block " + i + "\nRMSNorm → Q / K / V\nRoPE → causal attention\n" + config.heads() + " heads → residual add\nRMSNorm → SwiGLU\nhidden " + config.hidden() + " → residual add";
-        labels[stages - 1] = "Final RMSNorm\nTied output projection\n" + config.vocabulary() + " logits → next byte";
+        labels[stages - 1] = "Final RMSNorm\nTied output projection\n" + config.vocabulary() + " logits → next token";
         // Node counts per stage stand in for real dimensions (attention heads inside blocks,
         // a capped sample of embedding/output width elsewhere) so the fan-out is not misleading noise.
         int[] nodeCounts = new int[stages];

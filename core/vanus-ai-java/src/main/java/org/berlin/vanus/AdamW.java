@@ -1,5 +1,6 @@
 package org.berlin.vanus;
 
+import java.io.*;
 import java.util.*;
 
 /**
@@ -53,5 +54,48 @@ public final class AdamW {
             }
         }
         return norm;
+    }
+
+    int steps() { return steps; }
+    float decay() { return decay; }
+
+    void write(DataOutput out) throws IOException {
+        out.writeFloat(decay); out.writeInt(steps); out.writeInt(parameters.size());
+        for (int p = 0; p < parameters.size(); p++) {
+            out.writeInt(first.get(p).length);
+            for (float value : first.get(p)) out.writeFloat(value);
+            for (float value : second.get(p)) out.writeFloat(value);
+        }
+    }
+
+    static AdamW read(DataInput in, Collection<Tensor> parameters) throws IOException {
+        float decay = in.readFloat(); int steps = in.readInt(), count = in.readInt();
+        if (!Float.isFinite(decay) || decay < 0 || steps < 0 || count != parameters.size())
+            throw new IOException("Invalid optimizer state");
+        AdamW optimizer = new AdamW(parameters, decay);
+        optimizer.steps = steps;
+        for (int p = 0; p < count; p++) {
+            int length = in.readInt();
+            if (length != optimizer.first.get(p).length) throw new IOException("Optimizer shape mismatch");
+            for (int i = 0; i < length; i++) optimizer.first.get(p)[i] = finite(in.readFloat());
+            for (int i = 0; i < length; i++) optimizer.second.get(p)[i] = finite(in.readFloat());
+        }
+        return optimizer;
+    }
+
+    static void skip(DataInput in, Collection<Tensor> parameters) throws IOException {
+        float decay = in.readFloat(); int steps = in.readInt(), count = in.readInt();
+        if (!Float.isFinite(decay) || decay < 0 || steps < 0 || count != parameters.size())
+            throw new IOException("Invalid optimizer state");
+        for (Tensor tensor : parameters) {
+            int length = in.readInt();
+            if (length != tensor.data.length) throw new IOException("Optimizer shape mismatch");
+            for (int i = 0; i < 2 * length; i++) finite(in.readFloat());
+        }
+    }
+
+    private static float finite(float value) throws IOException {
+        if (!Float.isFinite(value)) throw new IOException("Nonfinite optimizer state");
+        return value;
     }
 }

@@ -13,6 +13,16 @@ class VanusSuite extends munit.FunSuite:
     assertEquals(tokenizer.prompt("a").toSeq, Seq(256, 258, 97, 259))
   }
 
+  test("BPE learns reusable subwords and round trips UTF-8") {
+    val text = "hello hello helper hello 世界 世界 " * 8
+    val tokenizer = BpeTokenizer.train(text, 280)
+    assert(tokenizer.vocabulary() > ByteTokenizer.VOCABULARY)
+    assert(tokenizer.encode("hello hello").length < new ByteTokenizer().encode("hello hello").length)
+    assertEquals(tokenizer.decode(tokenizer.encode("hello 世界")), "hello 世界")
+    val model = new Transformer(config.withVocabulary(tokenizer.vocabulary()), 7, tokenizer)
+    assertEquals(model.config.vocabulary(), tokenizer.vocabulary())
+  }
+
   test("backward accumulates through shared operands") {
     val x = Tensor.zeros(1, 2, true)
     x.data(0) = 0.3f; x.data(1) = -0.7f
@@ -92,6 +102,35 @@ class VanusSuite extends munit.FunSuite:
     finally Files.deleteIfExists(path)
   }
 
+  test("training checkpoint restores tokenizer and AdamW moments") {
+    val path = Files.createTempFile("vanus-training-test-", ".bin")
+    try
+      val tokenizer = BpeTokenizer.train("hello hello helper hello " * 8, 270)
+      val dynamicConfig = config.withVocabulary(tokenizer.vocabulary())
+      val model = new Transformer(dynamicConfig, 12, tokenizer)
+      val optimizer = new AdamW(model.parameters(), 0.01f)
+      val sequence = tokenizer.encode("hello hello")
+      val input = sequence.dropRight(1)
+      val targets = sequence.drop(1)
+      model.forward(input).crossEntropy(targets).backward()
+      optimizer.step(0.003f, 1f)
+      model.saveTraining(path, optimizer, 123)
+
+      val restored = Transformer.loadTraining(path)
+      assertEquals(restored.completedSteps(), 123L)
+      assertEquals(restored.optimizer().steps(), optimizer.steps())
+      assertEquals(restored.model().tokenizer().kind(), "bpe")
+      assertEquals(restored.model().tokenizer().encode("hello").toSeq, tokenizer.encode("hello").toSeq)
+
+      for (candidateModel, candidateOptimizer) <- Seq(model -> optimizer, restored.model() -> restored.optimizer()) do
+        candidateModel.zeroGrad()
+        candidateModel.forward(input).crossEntropy(targets).backward()
+        candidateOptimizer.step(0.002f, 1f)
+      assertEquals(model.parameters().asScala.flatMap(_.data).toSeq,
+        restored.model().parameters().asScala.flatMap(_.data).toSeq)
+    finally Files.deleteIfExists(path)
+  }
+
   test("parameter formula counts tied embedding once") {
     val model = new Transformer(config, 0)
     assertEquals(model.parameters().asScala.map(_.data.length.toLong).sum, config.parameterCount())
@@ -154,4 +193,51 @@ class VanusSuite extends munit.FunSuite:
     loss.backward()
     assert(model.parameters().asScala.forall(p => p.grad.forall(java.lang.Float.isFinite)))
     assert(model.parameters().asScala.exists(p => p.grad.exists(_ != 0)))
+  }
+
+  test("self-talk picks ordered words within the UTF-8 budget and handles empty replies") {
+    val words = Seq("Hello", "there", "how", "are", "you", "doing", "today")
+    val replies = (0 until 30).map { seed =>
+      val prompt = TransformerVisualizerApp.selfTalkPrompt(words.mkString(" "), 20, new java.util.Random(seed))
+      assert(prompt.nonEmpty)
+      assert(prompt.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 20)
+      val indices = prompt.split(" ").map(words.indexOf(_)).toSeq
+      assert(indices.forall(_ >= 0))
+      assertEquals(indices, indices.sorted.distinct)
+      prompt
+    }
+    assert(replies.distinct.size > 1)
+    assertEquals(TransformerVisualizerApp.selfTalkPrompt("\u0000 !!!", 20, new java.util.Random(1)), "hello")
+    val unicode = TransformerVisualizerApp.selfTalkPrompt("世界 你好 morning", 7, new java.util.Random(2))
+    assert(unicode.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 7)
+    assert(!unicode.contains("\ufffd"))
+  }
+
+  test("checkpoint weight statistics cover all values and exact differences") {
+    val current = Tensor.of(2, 2, 1f, -2f, 3f, -4f)
+    val reference = Tensor.of(2, 2, 0f, -2f, 1f, -5f)
+    val stats = CheckpointVisualizerApp.statistics(current, reference)
+    assertEquals(stats.count(), 4)
+    assertEqualsDouble(stats.mean(), -0.5, 1e-12)
+    assertEqualsDouble(stats.rms(), math.sqrt(7.5), 1e-12)
+    assertEqualsDouble(stats.min(), -4, 1e-12)
+    assertEqualsDouble(stats.max(), 3, 1e-12)
+    assertEqualsDouble(stats.deltaRms(), math.sqrt(1.5), 1e-12)
+    assertEqualsDouble(stats.deltaMax(), 2, 1e-12)
+    assertEquals(stats.changed(), 3)
+  }
+
+  test("checkpoint comparison requires identical architectures") {
+    val a = new Transformer(config, 1)
+    val b = new Transformer(config, 2)
+    CheckpointVisualizerApp.validateComparable(a, b)
+    intercept[IllegalArgumentException](
+      CheckpointVisualizerApp.validateComparable(a, new Transformer(ModelConfig.tiny(), 2)))
+  }
+
+  test("elapsed training time formats short and multi-day runs") {
+    assertEquals(Main.formatElapsed(0), "00:00:00")
+    assertEquals(Main.formatElapsed(3_661_999_999_999L), "01:01:01")
+    assertEquals(Main.formatElapsed(183_845_000_000_000L), "51:04:05")
+    intercept[IllegalArgumentException](Main.formatElapsed(-1))
   }

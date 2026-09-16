@@ -9,16 +9,49 @@ object Main:
   // Default demo corpus; filtered per-config below since the tiny model's context is small.
   private val demoData = Path.of("data/pride-and-prejudice.tsv")
   private val demoDictData = Path.of("data/dictionary2.tsv")
-  private val tokenizer = new ByteTokenizer()
-
-
   def main(args: Array[String]): Unit =
     requireJava21()
     args.toList match
       case Nil | "info" :: Nil =>
         for (name, config) <- List("tiny" -> ModelConfig.tiny(), "dictionary" -> ModelConfig.dictionary(), "200k" -> ModelConfig.vanus200k(), "20m" -> ModelConfig.vanus20m()) do
           println(s"$name: ${config.parameterCount()} parameters; $config")
-        println("Commands: demo2daily200k [steps] | demo2daily [steps] | greetings [steps] | demo2greet [steps] | eval <checkpoint> <pairs.tsv> | demo [steps] [checkpoint] | demo2 [steps] | demo2dict [steps] | train <tiny|200k|20m> <pairs.tsv> <steps> <checkpoint> | chat <checkpoint> <prompt>")
+        println("""
+Recommended GUI:
+  demo2greet                         Load the verified greeting model and open Swing
+  demo2greet 2000                    Retrain greetings, evaluate, then open Swing
+  demo2daily200k 10000               Train the larger experimental model, then open Swing
+  gui <checkpoint> [pairs.tsv]       Open any saved checkpoint without training
+
+All application commands:
+  info                               Show model configurations and this help
+  greetings [steps]                  Greeting model; train/load and evaluate in terminal
+  demo2greet [steps]                 Greeting model; train/load, evaluate, open Swing
+  demo2daily [steps]                 Tiny DailyDialog starter model with Swing
+  demo2daily200k [steps]             200K DailyDialog starter model with Swing
+  demo [steps] [checkpoint]          Always train tiny novel continuation model
+  demo2 [steps]                      Tiny novel continuation model with Swing
+  demo2dict [steps]                  Dictionary model with Swing
+  weights <checkpoint>               Inspect real checkpoint weights in Swing
+  weights <current> <reference>      Visualize weight changes between checkpoints
+  train <tiny|200k|20m> <pairs.tsv> <steps> <checkpoint> [batch]
+                                     Train prompt/reply data from random weights
+  pretrain <tiny|200k|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]
+                                     Learn BPE and continuously predict a text file
+  continue <checkpoint> <pairs.tsv> <steps> <output> [batch]
+                                     Continue with saved weights and AdamW state
+  continue-pretrain <checkpoint> <text> <steps> <output> [batch]
+                                     Continue raw-text next-token pretraining
+  gui <checkpoint> [pairs.tsv]       Open saved weights in Swing; never trains
+  chat <checkpoint> <prompt...>      Generate one terminal reply from saved weights
+  eval <checkpoint> <pairs.tsv>      Evaluate saved weights against prompt/reply pairs
+
+Arguments:
+  Demo [steps] is optional. Supplying it retrains that demo from scratch.
+  Batch defaults to 1. BPE vocabulary defaults to 512 (260 base/control tokens plus merges).
+  Without [steps], a demo loads its checkpoint, or trains defaults if it is missing.
+  Run application commands as: sbt 'run <command> <arguments>'
+  In Swing, use Send, the example dropdown, or Talk to itself (every 2 seconds).
+""")
       case command :: rest if Set("greetings", "demo2greet").contains(command) && rest.length <= 1 =>
         val pairs = loadPairs(Path.of("data/conversation.tsv"))
         val checkpoint = Path.of("checkpoints/conversation.vanus")
@@ -38,6 +71,11 @@ object Main:
         TransformerVisualizerApp.launch(model, "DailyDialog starter", pairs.size, checkpoint.toString, pairs.map(_._1).toSet.asJava)
       case "eval" :: checkpoint :: input :: Nil =>
         evaluate(Transformer.load(Path.of(checkpoint)), loadPairs(Path.of(input)), input)
+      case "weights" :: current :: Nil =>
+        CheckpointVisualizerApp.launch(Transformer.load(Path.of(current)), current, null, null)
+      case "weights" :: current :: reference :: Nil =>
+        CheckpointVisualizerApp.launch(Transformer.load(Path.of(current)), current,
+          Transformer.load(Path.of(reference)), reference)
       case "demo" :: rest if rest.length <= 2 =>
         val config = ModelConfig.tiny()
         val pairs = loadPairs(demoData).filter((p, a) => (p + a).getBytes(StandardCharsets.UTF_8).length <= config.context() - 3)
@@ -59,19 +97,34 @@ object Main:
         val model = if rest.isEmpty && Files.exists(checkpoint) then Transformer.load(checkpoint)
           else train(config, pairs, rest.headOption.fold(200)(_.toInt), checkpoint, 8)
         TransformerVisualizerApp.launch(model, "Dictionary", pairs.size, checkpoint.toString, pairs.map(_._1).toSet.asJava)
-      case "train" :: size :: input :: steps :: output :: Nil =>
-        val config = size match
-          case "tiny" => ModelConfig.tiny()
-          case "200k" => ModelConfig.vanus200k()
-          case "20m" => ModelConfig.vanus20m()
-          case _ => throw new IllegalArgumentException("Model size must be tiny, 200k or 20m")
-        train(config, loadPairs(Path.of(input)), steps.toInt, Path.of(output))
+      case "train" :: size :: input :: steps :: output :: rest if rest.length <= 1 =>
+        train(modelConfig(size), loadPairs(Path.of(input)), steps.toInt, Path.of(output),
+          rest.headOption.fold(1)(_.toInt))
+      case "pretrain" :: size :: input :: steps :: output :: rest if rest.length <= 2 =>
+        val text = Files.readString(Path.of(input), StandardCharsets.UTF_8)
+        val batch = rest.headOption.fold(1)(_.toInt)
+        val requestedVocabulary = rest.drop(1).headOption.fold(512)(_.toInt)
+        pretrain(modelConfig(size), text, steps.toInt, Path.of(output), batch, requestedVocabulary)
+      case "continue" :: checkpoint :: input :: steps :: output :: rest if rest.length <= 1 =>
+        val state = Transformer.loadTraining(Path.of(checkpoint))
+        trainExisting(state.model(), state.optimizer(), loadPairs(Path.of(input)), steps.toInt,
+          Path.of(output), rest.headOption.fold(1)(_.toInt), state.completedSteps())
+      case "continue-pretrain" :: checkpoint :: input :: steps :: output :: rest if rest.length <= 1 =>
+        val state = Transformer.loadTraining(Path.of(checkpoint))
+        pretrainExisting(state.model(), state.optimizer(),
+          Files.readString(Path.of(input), StandardCharsets.UTF_8), steps.toInt, Path.of(output),
+          rest.headOption.fold(1)(_.toInt), state.completedSteps())
+      case "gui" :: checkpoint :: rest if rest.length <= 1 =>
+        val pairs = rest.headOption.fold(Vector.empty[(String, String)])(path => loadPairs(Path.of(path)))
+        val datasetName = rest.headOption.getOrElse("No prompt dataset")
+        TransformerVisualizerApp.launch(Transformer.load(Path.of(checkpoint)), datasetName, pairs.size,
+          checkpoint, pairs.map(_._1).toSet.asJava)
       case "chat" :: checkpoint :: prompt if prompt.nonEmpty =>
         val model = Transformer.load(Path.of(checkpoint))
         println(model.generate(prompt.mkString(" "), 100, 0, 1, 42))
       case _ => throw new IllegalArgumentException("Run 'info' for command usage")
 
-  /** Teacher-forced loss measures byte prediction; exact match measures an entire generated reply. */
+  /** Teacher-forced loss measures token prediction; exact match measures an entire generated reply. */
   private def evaluate(model: Transformer, pairs: Vector[(String, String)], label: String): Unit =
     require(pairs.nonEmpty, "Evaluation dataset is empty")
     var matched = 0
@@ -80,7 +133,7 @@ object Main:
     var lossSum = 0.0
     println(s"\n$label:")
     for (prompt, answer) <- pairs do
-      val (input, targets) = example(prompt, answer, model.config.context())
+      val (input, targets) = example(model.tokenizer(), prompt, answer, model.config.context())
       val logits = Tensor.noGrad(() => model.forward(input))
       val count = targets.count(_ >= 0)
       lossSum += Tensor.noGrad(() => logits.crossEntropy(targets)).data(0) * count
@@ -93,7 +146,7 @@ object Main:
       if exact then matched += 1
       println(s"${if exact then "OK" else "MISS"} | $prompt -> $reply")
       if !exact then println(s"       expected: $answer")
-    println(f"Exact replies: $matched/${pairs.size} (${100.0 * matched / pairs.size}%.1f%%) | answer-byte accuracy: ${100.0 * correct / tokens}%.1f%% | loss: ${lossSum / tokens}%.4f")
+    println(f"Exact replies: $matched/${pairs.size} (${100.0 * matched / pairs.size}%.1f%%) | answer-token accuracy: ${100.0 * correct / tokens}%.1f%% | loss: ${lossSum / tokens}%.4f")
 
   private def loadPairs(path: Path): Vector[(String, String)] =
     Files.readAllLines(path).asScala.filter(_.nonEmpty).zipWithIndex.map { (line, index) =>
@@ -109,10 +162,10 @@ object Main:
         s"Vanus requires Java 21 or newer; current runtime is Java $feature"
       )
 
-  private def example(prompt: String, answer: String, context: Int): (Array[Int], Array[Int]) =
+  private def example(tokenizer: TextTokenizer, prompt: String, answer: String, context: Int): (Array[Int], Array[Int]) =
     val prefix = tokenizer.prompt(prompt)
     val sequence = prefix ++ tokenizer.encode(answer) ++ Array(ByteTokenizer.EOS)
-    require(sequence.length - 1 <= context, s"Example exceeds $context byte tokens")
+    require(sequence.length - 1 <= context, s"Example exceeds $context tokens")
     val input = sequence.dropRight(1)
     val targets = sequence.drop(1)
     Arrays.fill(targets, 0, prefix.length - 1, -1)
@@ -122,13 +175,18 @@ object Main:
     train(config, pairs, steps, output, 1)
 
   private def train(config: ModelConfig, pairs: Vector[(String, String)], steps: Int, output: Path, batchSize: Int): Transformer =
+    val model = new Transformer(config, 42)
+    trainExisting(model, new AdamW(model.parameters(), 0.01f), pairs, steps, output, batchSize, 0)
+
+  private def trainExisting(model: Transformer, optimizer: AdamW, pairs: Vector[(String, String)], steps: Int,
+                            output: Path, batchSize: Int, completedSteps: Long): Transformer =
     require(steps > 0 && pairs.nonEmpty, "Positive steps and nonempty dataset required")
     require(batchSize > 0, "Positive batch size required")
-    val examples = pairs.map((p, a) => example(p, a, config.context()))
-    val model = new Transformer(config, 42)
-    val optimizer = new AdamW(model.parameters(), 0.01f)
+    val examples = pairs.map((p, a) => example(model.tokenizer(), p, a, model.config.context()))
     val rng = new scala.util.Random(42)
-    println(s"Training ${config.parameterCount()} parameters on ${pairs.size} examples, CPU float32")
+    val startedAt = System.nanoTime()
+    println(s"Training ${model.config.parameterCount()} parameters on ${pairs.size} examples, " +
+      s"tokenizer=${model.tokenizer().kind()}, batch=$batchSize, startingStep=$completedSteps, CPU float32")
     for step <- 1 to steps do
       val batch = Array.fill(batchSize)(examples(rng.nextInt(examples.size)))
       model.zeroGrad()
@@ -137,15 +195,80 @@ object Main:
         val loss = model.forward(input).crossEntropy(targets)
         lossTotal += loss.data(0)
         loss.backward()
-      for parameter <- model.parameters().asScala do
-        for index <- parameter.grad.indices do parameter.grad(index) /= batchSize
-      val warmup = math.min(1.0, step / 10.0)
-      val cosine = 0.1 + 0.9 * 0.5 * (1 + math.cos(math.Pi * step / steps))
-      val norm = optimizer.step((0.003 * warmup * cosine).toFloat, 1.0f)
+      averageGradients(model, batchSize)
+      val norm = optimizer.step(learningRate(step, steps), 1.0f)
       if step == 1 || step % 25 == 0 || step == steps then
-        println(f"step=$step%d loss=${lossTotal / batchSize}%.4f gradNorm=$norm%.4f batch=$batchSize%d")
-    model.save(output)
-    println(s"Saved $output")
+        val elapsed = formatElapsed(System.nanoTime() - startedAt)
+        println(f"elapsed=$elapsed%s step=$step%d/$steps%d total=${completedSteps + step}%d loss=${lossTotal / batchSize}%.4f gradNorm=$norm%.4f batch=$batchSize%d")
+    model.saveTraining(output, optimizer, completedSteps + steps)
+    println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
     println(s"Prompt: ${pairs.head._1}")
     println(s"Response: ${model.generate(pairs.head._1, 100, 0, 1, 42)}")
     model
+
+  private def pretrain(baseConfig: ModelConfig, text: String, steps: Int, output: Path,
+                       batchSize: Int, requestedVocabulary: Int): Transformer =
+    require(steps > 0 && batchSize > 0, "Positive steps and batch size required")
+    val tokenizer = BpeTokenizer.train(text, requestedVocabulary)
+    val config = baseConfig.withVocabulary(tokenizer.vocabulary())
+    val model = new Transformer(config, 42, tokenizer)
+    val optimizer = new AdamW(model.parameters(), 0.01f)
+    pretrainExisting(model, optimizer, text, steps, output, batchSize, 0)
+
+  private def pretrainExisting(model: Transformer, optimizer: AdamW, text: String, steps: Int,
+                               output: Path, batchSize: Int, completedSteps: Long): Transformer =
+    require(steps > 0 && batchSize > 0, "Positive steps and batch size required")
+    val tokenizer = model.tokenizer()
+    val rng = new scala.util.Random(42)
+    val tokens = tokenizer.encode(text)
+    require(tokens.length >= 2, "Pretraining text must contain at least two tokens")
+    val window = math.min(model.config.context() + 1, tokens.length)
+    val startedAt = System.nanoTime()
+    val merges = tokenizer match
+      case bpe: BpeTokenizer => s", merges=${bpe.merges().size()}"
+      case _ => ""
+    println(s"Continuous-text pretraining ${model.config.parameterCount()} parameters on ${tokens.length} tokens, " +
+      s"tokenizer=${tokenizer.kind()}, vocabulary=${tokenizer.vocabulary()}$merges, batch=$batchSize, " +
+      s"startingStep=$completedSteps, CPU float32")
+    for step <- 1 to steps do
+      model.zeroGrad()
+      var lossTotal = 0.0
+      for _ <- 1 to batchSize do
+        val start = if tokens.length == window then 0 else rng.nextInt(tokens.length - window + 1)
+        val sequence = Arrays.copyOfRange(tokens, start, start + window)
+        val input = sequence.dropRight(1)
+        val targets = sequence.drop(1)
+        val loss = model.forward(input).crossEntropy(targets)
+        lossTotal += loss.data(0)
+        loss.backward()
+      averageGradients(model, batchSize)
+      val norm = optimizer.step(learningRate(step, steps), 1.0f)
+      if step == 1 || step % 25 == 0 || step == steps then
+        val elapsed = formatElapsed(System.nanoTime() - startedAt)
+        println(f"elapsed=$elapsed%s step=$step%d/$steps%d total=${completedSteps + step}%d loss=${lossTotal / batchSize}%.4f gradNorm=$norm%.4f batch=$batchSize%d")
+    model.saveTraining(output, optimizer, completedSteps + steps)
+    println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
+    model
+
+  private def averageGradients(model: Transformer, batchSize: Int): Unit =
+    for parameter <- model.parameters().asScala do
+      for index <- parameter.grad.indices do parameter.grad(index) /= batchSize
+
+  private def learningRate(step: Int, steps: Int): Float =
+    val warmup = math.min(1.0, step / 10.0)
+    val cosine = 0.1 + 0.9 * 0.5 * (1 + math.cos(math.Pi * step / steps))
+    (0.003 * warmup * cosine).toFloat
+
+  private def modelConfig(size: String): ModelConfig = size match
+    case "tiny" => ModelConfig.tiny()
+    case "200k" => ModelConfig.vanus200k()
+    case "20m" => ModelConfig.vanus20m()
+    case _ => throw new IllegalArgumentException("Model size must be tiny, 200k or 20m")
+
+  private[vanus] def formatElapsed(nanoseconds: Long): String =
+    require(nanoseconds >= 0, "Elapsed time cannot be negative")
+    val totalSeconds = nanoseconds / 1_000_000_000L
+    val hours = totalSeconds / 3600
+    val minutes = totalSeconds % 3600 / 60
+    val seconds = totalSeconds % 60
+    f"$hours%02d:$minutes%02d:$seconds%02d"

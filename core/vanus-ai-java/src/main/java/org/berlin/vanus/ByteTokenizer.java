@@ -8,9 +8,13 @@ import java.nio.charset.StandardCharsets;
  * values (IDs 0..255). Four extra IDs (256..259) are reserved for
  * structural/control tokens so they can never collide with actual text.
  */
-public final class ByteTokenizer {
+public final class ByteTokenizer implements TextTokenizer {
     // BOS/EOS mark sequence boundaries; USER/ASSISTANT delimit chat turns; VOCABULARY is the total token count.
     public static final int BOS = 256, EOS = 257, USER = 258, ASSISTANT = 259, VOCABULARY = 260;
+
+    @Override public int vocabulary() { return VOCABULARY; }
+    @Override public String kind() { return "byte"; }
+    @Override public void write(java.io.DataOutput out) throws java.io.IOException { out.writeUTF(kind()); }
 
     /** Converts text to its raw UTF-8 byte values, one token ID per byte. */
     public int[] encode(String text) {
