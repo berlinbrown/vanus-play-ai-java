@@ -41,6 +41,9 @@ sbt 'run demo2daily200k 10000'
 
 The greeting model is the most reliable current demo. The 200K model is a
 capacity experiment whose conversational quality has not yet been measured.
+See [Best and most interesting GUI runs](EXAMPLES.md#best-and-most-interesting-gui-runs)
+for a ranked set of GUI experiments, including raw BPE text generation,
+dialogue tuning, self-talk, and checkpoint-weight comparison.
 
 ## Command reference
 
@@ -175,6 +178,8 @@ moments.
 
 See the [complete model guide](core/vanus-ai-java/README.md) for every command,
 model dimensions, datasets, measured results, architecture, and learning notes.
+The [command examples and workflows](EXAMPLES.md) page enumerates every command
+form, quick and long training settings, estimated runtimes, and linked sequences.
 
 ### Common Scenarios and Commands
 
