@@ -66,9 +66,9 @@ Do not type the brackets.
 | `demo2dict [steps]` | Load/train the dictionary preset on `dictionary2.tsv`, then Swing | 200 / 8 | `checkpoints/demo2-dictionary.vanus` |
 | `weights <checkpoint>` | Inspect real tensors from one checkpoint in Swing | No training | Required input path |
 | `weights <current> <reference>` | Compare matching checkpoints and visualize `current − reference` | No training | Two required input paths |
-| `train <tiny\|200k\|20m> <pairs.tsv> <steps> <checkpoint> [batch]` | Train prompt/reply data from random weights | Required / 1 | Required output path |
-| `pretrain <tiny\|200k\|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]` | Learn BPE and continuously predict raw text | Required / 1 / 512 | Required output path |
-| `continue <checkpoint> <pairs.tsv> <steps> <output> [batch]` | Continue with saved weights and AdamW state | Required / 1 | Required input and output paths |
+| `train <tiny\|200k\|1m\|20m> <pairs.tsv> <steps> <checkpoint> [batch]` | Train prompt/reply data with automatic light typo augmentation | Required / 1 | Required output path |
+| `pretrain <tiny\|200k\|1m\|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]` | Learn BPE and continuously predict raw text | Required / 1 / 512 | Required output path |
+| `continue <checkpoint> <pairs.tsv> <steps> <output> [batch]` | Continue saved training with automatic light typo augmentation | Required / 1 | Required input and output paths |
 | `continue-pretrain <checkpoint> <text> <steps> <output> [batch]` | Continue raw-text prediction with the saved tokenizer and AdamW state | Required / 1 | Required input and output paths |
 | `gui <checkpoint> [pairs.tsv]` | Open any saved model in Swing without training; optional TSV fills the prompt dropdown | No training | Required input path |
 | `chat <checkpoint> <prompt...>` | Load weights and generate one terminal reply | No training | Required input path |
@@ -94,10 +94,12 @@ and the prompt dropdown; generation itself does not look up answers in the TSV.
 | `tiny` | 18,656 | 32 | 64 | 1 | 4 | 128 |
 | `dictionary` | 98,880 | 64 | 128 | 2 | 4 | 256 |
 | `200k` | 200,544 | 96 | 176 | 2 | 4 | 128 |
+| `1m` | 1,067,040 | 160 | 320 | 4 | 8 | 256 |
 | `20m` | 20,309,184 | 448 | 1,280 | 8 | 8 | 256 |
 
-The generic `train` command accepts `tiny`, `200k`, and `20m`. The `dictionary`
-preset is currently available only through `demo2dict`. The 20M model is very
+The generic `train` command accepts `tiny`, `200k`, `1m`, and `20m`. The `dictionary`
+preset is currently available only through `demo2dict`. The 1M preset is the
+practical intermediate option for longer answers. The 20M model is very
 slow in this scalar CPU implementation; a few steps are useful as a smoke test,
 not meaningful language training.
 
@@ -279,15 +281,26 @@ clipping at one, and weight decay 0.01 on matrices; one-row RMSNorm gains are
 excluded from decay.
 
 Supervised training samples examples with replacement using deterministic seed
-42. It masks prompt targets, supervises answer tokens through EOS, and uses a base learning
+42. To improve tolerance for ordinary typing differences without adding CLI
+arguments, 20% of sampled prompts receive one temporary small change: a missing
+internal letter, swapped adjacent letters, removed comma, or removed ending
+punctuation. The other 80% remain clean, and dataset files are never modified.
+Training masks prompt targets, supervises answer tokens through EOS, and uses a base learning
 rate of 0.003 multiplied by a ten-step warmup and a cosine schedule that reaches
 a 10% floor at the final step. Gradients are averaged across the command-specific
 batch before the optimizer step. Continuous-text pretraining instead samples
 windows from one encoded raw-text stream and predicts every next token. Training
-logs every 25 steps (plus the first and
-last step) with `elapsed=HH:MM:SS`, current/total steps, sampled-batch loss,
-pre-clipping gradient norm, and batch size. The save message reports total elapsed
-time; hours may exceed 24 for multi-day runs.
+logs at the first step, approximately every four seconds, and at the final step.
+Each report is a compact four-line block. It shows `elapsed=HH:MM:SS`, percentage,
+segment and cumulative steps, recent average loss, batch size, estimated time,
+the learning objective, tokenizer, vocabulary, context, AdamW learning rate,
+pre-clipping gradient norm, and throughput. It also confirms that every
+trainable tensor is updating and reports parameter/tensor counts, weight RMS,
+maximum absolute weight, gradient RMS, architecture dimensions, and the trained
+weight groups: embedding/tied output, attention Q/K/V/O, SwiGLU gate/up/down,
+and RMSNorm gains. The time interval keeps long jobs visible without producing
+a line for every update. The save message reports total elapsed time; hours may
+exceed 24 for multi-day runs.
 
 CLI and GUI generation use temperature zero and top-k one, which is greedy and
 deterministic. The Java API also supports temperature and top-k sampling. During

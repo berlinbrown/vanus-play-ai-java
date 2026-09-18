@@ -43,6 +43,15 @@ usually fills the whole context, while short TSV examples can run faster. The
 days in this scalar CPU implementation. BPE learning also adds startup time
 before the first training step.
 
+While training, Vanus prints a compact four-line progress block at startup,
+approximately every four seconds, and at completion. It shows elapsed time,
+completion percentage, current and cumulative steps, recent average loss,
+gradient norm, batch size, learning rate, steps and samples per second, and
+estimated time remaining. It identifies the objective and tokenizer and reports
+weight RMS, maximum absolute weight, gradient RMS, parameter/tensor counts,
+architecture dimensions, and the weight groups being trained. This is status
+logging only; it does not change the training calculation.
+
 For a quick end-to-end check, use:
 
 ```sh
@@ -216,6 +225,8 @@ predict each next token in continuous passages.
 | [`data/dictionary.tsv`](core/vanus-ai-java/data/dictionary.tsv) | 60 older derived dictionary prompt/reply pairs | Optional supervised experiments |
 | [`data/greetings.tsv`](core/vanus-ai-java/data/greetings.tsv) | 25 older local question/answer, fact, and phrase-completion examples | Optional small supervised experiments; not the main greeting demo dataset |
 | [`data/source-training-example.txt`](core/vanus-ai-java/data/source-training-example.txt) | Explanatory Java-code training examples and notes | Documentation only; `Main.scala` never loads it |
+| [`data/cat-language/train.tsv`](core/vanus-ai-java/data/cat-language/train.tsv) | 1,762 generated rows teaching consistent English-to-cat, cat-to-English, and cat-noise conversations | Train the bilingual invented cat language |
+| [`data/cat-language/test.tsv`](core/vanus-ai-java/data/cat-language/test.tsv) | 265 held-out cat-language combinations with no exact prompt overlap with training | Test whether the model learned reusable cat grammar |
 
 DailyDialog is a manually labelled multi-turn dialogue dataset introduced by
 Yanran Li, Hui Su, Xiaoyu Shen, Wenjie Li, Ziqiang Cao, and Shuzi Niu at IJCNLP
@@ -270,6 +281,39 @@ context.
 - Use `pride-and-prejudice.tsv` when teaching direct sentence-to-sentence
   continuation with the supervised `train` command.
 - Use `dictionary2.tsv` for a narrow word-definition demonstration.
+- Use `data/cat-language/train.tsv` to teach English and cat speech in both
+  directions, then evaluate with `data/cat-language/test.tsv`.
+
+### Cat-language workflow
+
+```sh
+# Train English → cat, cat → English, and cat-noise conversations
+sbt 'run train 1m data/cat-language/train.tsv 14000 checkpoints/cat-language-1m.vanus 4'
+
+# Open the bilingual cat model
+sbt 'run gui checkpoints/cat-language-1m.vanus data/cat-language/train.tsv'
+
+# Evaluate combinations excluded from training
+sbt 'run eval checkpoints/cat-language-1m.vanus data/cat-language/test.tsv'
+```
+
+Try both English and cat-noise inputs:
+
+```text
+Hello
+Meooow
+Hi Meooow
+Meoow Moewwww
+I am happy.
+Meow purr.
+I want food.
+Meow yowl nom.
+Translate to cat: You are curious.
+What does "Mewmau trill." mean?
+```
+
+The dataset and generator are documented in
+[`data/cat-language/README.md`](core/vanus-ai-java/data/cat-language/README.md).
 
 ## Which data each command uses
 
@@ -492,7 +536,7 @@ Batch 8 makes each step substantially more expensive than batch 1.
 The complete syntax is:
 
 ```text
-train <tiny|200k|20m> <pairs.tsv> <steps> <checkpoint> [batch]
+train <tiny|200k|1m|20m> <pairs.tsv> <steps> <checkpoint> [batch]
 ```
 
 All model-size enumerations are:
@@ -500,6 +544,7 @@ All model-size enumerations are:
 ```sh
 sbt 'run train tiny data/dailydialog/starter.tsv 100 checkpoints/chat-tiny.vanus'
 sbt 'run train 200k data/dailydialog/starter.tsv 100 checkpoints/chat-200k.vanus'
+sbt 'run train 1m data/dailydialog/starter.tsv 100 checkpoints/chat-1m.vanus'
 sbt 'run train 20m data/dailydialog/starter.tsv 100 checkpoints/chat-20m.vanus'
 ```
 
@@ -513,7 +558,37 @@ sbt 'run train 200k data/dailydialog/starter.tsv 10000 checkpoints/chat-high.van
 ```
 
 `train` always starts from random weights and writes a checkpoint containing
-the weights, tokenizer, AdamW state, and completed step count.
+the weights, tokenizer, AdamW state, and completed step count. Supervised
+training automatically applies a missing letter, swapped adjacent letters,
+removed comma, or removed ending punctuation to 20% of sampled prompts while
+retaining the same expected answer:
+
+```sh
+sbt 'run train 200k data/dailydialog/starter.tsv 30000 checkpoints/robust-typos.vanus 4'
+sbt 'run gui checkpoints/robust-typos.vanus data/dailydialog/starter.tsv'
+```
+
+The other 80% remain exact. Variants exist only while training; the original
+DailyDialog TSV, validation data, and test data remain unchanged.
+
+For the intermediate 1M model on the starter dataset:
+
+```sh
+# Benchmark 100 steps first to estimate runtime on your machine
+sbt 'run train 1m data/dailydialog/starter.tsv 100 checkpoints/starter-1m-smoke.vanus 4'
+
+# Approximately one-hour run at the measured local rate
+sbt 'run train 1m data/dailydialog/starter.tsv 8000 checkpoints/starter-1m-8k.vanus 4'
+
+# Open the completed checkpoint without training
+sbt 'run gui checkpoints/starter-1m-8k.vanus data/dailydialog/starter.tsv'
+```
+
+The 1M preset has 1,067,040 parameters, four transformer layers, width 160,
+eight attention heads, and a 256-token context. It is about 5.3 times larger
+than `200k`. A local batch-4 smoke benchmark reached roughly 2.2 steps per
+second after startup, making 8,000 steps about one hour and 30,000 steps roughly
+four hours. Actual speed depends on sampled sequence lengths and the machine.
 
 ## Continue supervised training
 
@@ -523,7 +598,7 @@ The two possible forms are:
 # Default batch 1
 sbt 'run continue checkpoints/chat.vanus data/dailydialog/starter.tsv 5000 checkpoints/chat-more.vanus'
 
-# Explicit batch 4
+# Explicit batch 4; light prompt augmentation is automatic
 sbt 'run continue checkpoints/chat.vanus data/dailydialog/starter.tsv 5000 checkpoints/chat-more.vanus 4'
 ```
 
@@ -543,7 +618,7 @@ they do not contain optimizer state.
 The complete syntax is:
 
 ```text
-pretrain <tiny|200k|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]
+pretrain <tiny|200k|1m|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]
 ```
 
 Every optional-argument form is:
@@ -564,6 +639,7 @@ All size choices are valid:
 ```sh
 sbt 'run pretrain tiny data/pride-prejudice-raw-public.txt 100 checkpoints/book-tiny.vanus 1 320'
 sbt 'run pretrain 200k data/pride-prejudice-raw-public.txt 10000 checkpoints/book-200k.vanus 4 512'
+sbt 'run pretrain 1m data/pride-prejudice-raw-public.txt 100 checkpoints/book-1m.vanus 1 512'
 sbt 'run pretrain 20m data/pride-prejudice-raw-public.txt 100 checkpoints/book-20m.vanus 1 512'
 ```
 

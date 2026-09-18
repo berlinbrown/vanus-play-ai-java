@@ -35,6 +35,11 @@ public record ModelConfig(int vocabulary, int width, int hidden, int layers, int
         return new ModelConfig(260, 96, 176, 2, 4, 128);
     }
 
+    /** About 1M parameters with a longer context for intermediate experiments. */
+    public static ModelConfig vanus1m() {
+        return new ModelConfig(260, 160, 320, 4, 8, 256);
+    }
+
     /** ~20M parameter preset used for real training/generation runs. */
     public static ModelConfig vanus20m() {
         return new ModelConfig(260, 448, 1280, 8, 8, 256);

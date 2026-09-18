@@ -9,6 +9,95 @@ byte and educational BPE tokenizers.
 
 Architecturally, yes: causal self-attention, RoPE, RMSNorm, SwiGLU, backprop through an autograd tape, AdamW, and autoregressive next-token prediction via cross-entropy are the same pieces production transformers use (see Architecture below). Nothing special-cases words or does string matching; every response comes out of matrix multiplications over learned weights.
 
+## ELI5: how Vanus works
+
+Think of Vanus as a tiny child learning to talk.
+
+### Before training
+
+Vanus knows nothing. Its **weights** are thousands of random number knobs, so
+its answers are initially random noise.
+
+### Training
+
+We show it examples:
+
+```text
+Person: Hello
+Answer: Hello! Nice to meet you.
+```
+
+Vanus tries to guess the answer. When it guesses incorrectly, the code turns
+its number knobs slightly. It repeats this process thousands of times:
+
+```text
+Look → Guess → Check → Adjust
+```
+
+### The dataset
+
+The TSV file is its picture book:
+
+```text
+Hello    Hello! Nice to meet you.
+Goodbye  See you later.
+```
+
+More examples teach more situations, but a tiny brain can only remember so
+much.
+
+### The checkpoint
+
+After training, the adjusted knobs are saved in a `.vanus` checkpoint file.
+That file is the model's learned memory.
+
+### Running the GUI
+
+The GUI loads those saved knobs. When you enter `Hello`, Vanus changes the text
+into small tokens and asks:
+
+```text
+What token should come next?
+```
+
+It adds the chosen token and guesses again:
+
+```text
+Hello
+Hello!
+Hello! Nice
+Hello! Nice to
+```
+
+It stops when it chooses the special finished token.
+
+### What the Java code does
+
+The Java code builds the little brain, performs the guesses, calculates its
+mistakes, adjusts the knobs, saves them, and loads them later. The Swing code
+provides a window for talking to that brain.
+
+The complete process is:
+
+```text
+TSV examples
+     ↓
+Training changes the number knobs
+     ↓
+Checkpoint saves the knobs
+     ↓
+GUI loads the checkpoint
+     ↓
+Your prompt enters the model
+     ↓
+The model guesses one token at a time
+     ↓
+You see its answer
+```
+
+The model does not search the TSV when you talk to it. Training has already
+squeezed patterns from the TSV into the saved numbers.
+
 ## Recommended GUI demo
 
 Use JDK 21 or newer. From the model directory:
@@ -60,8 +149,8 @@ arguments; do not type the brackets.
 | `demo [steps] [checkpoint]` | Trains the tiny novel-continuation model in the terminal | Yes |
 | `demo2 [steps]` | Loads or trains the tiny novel model and opens Swing | Sometimes |
 | `demo2dict [steps]` | Loads or trains the dictionary model and opens Swing | Sometimes |
-| `train <size> <pairs.tsv> <steps> <checkpoint> [batch]` | Starts supervised prompt/reply training from random weights | Yes |
-| `continue <checkpoint> <pairs.tsv> <steps> <output> [batch]` | Continues supervised training with saved weights and AdamW state | Yes |
+| `train <size> <pairs.tsv> <steps> <checkpoint> [batch]` | Starts supervised training with automatic light typo augmentation | Yes |
+| `continue <checkpoint> <pairs.tsv> <steps> <output> [batch]` | Continues supervised training with automatic light typo augmentation | Yes |
 | `pretrain <size> <text> <steps> <checkpoint> [batch] [bpe-vocab]` | Learns BPE and starts continuous-text pretraining | Yes |
 | `continue-pretrain <checkpoint> <text> <steps> <output> [batch]` | Continues continuous-text pretraining with the saved tokenizer and optimizer | Yes |
 | `gui <checkpoint> [pairs.tsv]` | Opens an existing checkpoint in Swing; the optional TSV fills the prompt dropdown | No |
@@ -70,7 +159,7 @@ arguments; do not type the brackets.
 | `weights <checkpoint>` | Visualizes one checkpoint's real weights | No |
 | `weights <current> <reference>` | Visualizes differences between compatible checkpoints | No |
 
-`<size>` is `tiny`, `200k`, or `20m`. Batch size defaults to 1. The BPE
+`<size>` is `tiny`, `200k`, `1m`, or `20m`. Batch size defaults to 1. The BPE
 vocabulary defaults to 512. The `20m` model is very slow with this scalar CPU
 implementation.
 
@@ -180,6 +269,8 @@ See the [complete model guide](core/vanus-ai-java/README.md) for every command,
 model dimensions, datasets, measured results, architecture, and learning notes.
 The [command examples and workflows](EXAMPLES.md) page enumerates every command
 form, quick and long training settings, estimated runtimes, and linked sequences.
+The [cat-language dataset](core/vanus-ai-java/data/cat-language/README.md) teaches
+English-to-cat, cat-to-English, and direct cat-noise conversations.
 
 ### Common Scenarios and Commands
 

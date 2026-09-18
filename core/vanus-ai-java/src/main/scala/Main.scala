@@ -6,6 +6,7 @@ import java.util.Arrays
 import scala.jdk.CollectionConverters.*
 
 object Main:
+  private val defaultPromptNoisePercent = 20
   // Default demo corpus; filtered per-config below since the tiny model's context is small.
   private val demoData = Path.of("data/pride-and-prejudice.tsv")
   private val demoDictData = Path.of("data/dictionary2.tsv")
@@ -13,7 +14,8 @@ object Main:
     requireJava21()
     args.toList match
       case Nil | "info" :: Nil =>
-        for (name, config) <- List("tiny" -> ModelConfig.tiny(), "dictionary" -> ModelConfig.dictionary(), "200k" -> ModelConfig.vanus200k(), "20m" -> ModelConfig.vanus20m()) do
+        for (name, config) <- List("tiny" -> ModelConfig.tiny(), "dictionary" -> ModelConfig.dictionary(),
+          "200k" -> ModelConfig.vanus200k(), "1m" -> ModelConfig.vanus1m(), "20m" -> ModelConfig.vanus20m()) do
           println(s"$name: ${config.parameterCount()} parameters; $config")
         println("""
 Recommended GUI:
@@ -33,9 +35,9 @@ All application commands:
   demo2dict [steps]                  Dictionary model with Swing
   weights <checkpoint>               Inspect real checkpoint weights in Swing
   weights <current> <reference>      Visualize weight changes between checkpoints
-  train <tiny|200k|20m> <pairs.tsv> <steps> <checkpoint> [batch]
+  train <tiny|200k|1m|20m> <pairs.tsv> <steps> <checkpoint> [batch]
                                      Train prompt/reply data from random weights
-  pretrain <tiny|200k|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]
+  pretrain <tiny|200k|1m|20m> <text> <steps> <checkpoint> [batch] [bpe-vocab]
                                      Learn BPE and continuously predict a text file
   continue <checkpoint> <pairs.tsv> <steps> <output> [batch]
                                      Continue with saved weights and AdamW state
@@ -47,7 +49,8 @@ All application commands:
 
 Arguments:
   Demo [steps] is optional. Supplying it retrains that demo from scratch.
-  Batch defaults to 1. BPE vocabulary defaults to 512 (260 base/control tokens plus merges).
+  Batch defaults to 1. Supervised training automatically adds light prompt typo noise to 20% of samples.
+  BPE vocabulary defaults to 512 (260 base/control tokens plus merges).
   Without [steps], a demo loads its checkpoint, or trains defaults if it is missing.
   Run application commands as: sbt 'run <command> <arguments>'
   In Swing, use Send, the example dropdown, or Talk to itself (every 2 seconds).
@@ -175,20 +178,39 @@ Arguments:
     train(config, pairs, steps, output, 1)
 
   private def train(config: ModelConfig, pairs: Vector[(String, String)], steps: Int, output: Path, batchSize: Int): Transformer =
+    train(config, pairs, steps, output, batchSize, defaultPromptNoisePercent)
+
+  private def train(config: ModelConfig, pairs: Vector[(String, String)], steps: Int, output: Path,
+                    batchSize: Int, promptNoisePercent: Int = defaultPromptNoisePercent): Transformer =
     val model = new Transformer(config, 42)
-    trainExisting(model, new AdamW(model.parameters(), 0.01f), pairs, steps, output, batchSize, 0)
+    trainExisting(model, new AdamW(model.parameters(), 0.01f), pairs, steps, output, batchSize, 0,
+      promptNoisePercent)
 
   private def trainExisting(model: Transformer, optimizer: AdamW, pairs: Vector[(String, String)], steps: Int,
-                            output: Path, batchSize: Int, completedSteps: Long): Transformer =
+                            output: Path, batchSize: Int, completedSteps: Long,
+                            promptNoisePercent: Int = defaultPromptNoisePercent): Transformer =
     require(steps > 0 && pairs.nonEmpty, "Positive steps and nonempty dataset required")
     require(batchSize > 0, "Positive batch size required")
-    val examples = pairs.map((p, a) => example(model.tokenizer(), p, a, model.config.context()))
+    require(promptNoisePercent >= 0 && promptNoisePercent <= 100,
+      "Prompt noise percentage must be between 0 and 100")
+    val examples = if promptNoisePercent == 0 then
+      pairs.map((p, a) => example(model.tokenizer(), p, a, model.config.context()))
+    else Vector.empty
     val rng = new scala.util.Random(42)
     val startedAt = System.nanoTime()
+    val objective = s"supervised prompt→reply promptNoise=$promptNoisePercent%"
+    val progress = new TrainingProgress(model, objective, steps, batchSize, completedSteps, startedAt)
     println(s"Training ${model.config.parameterCount()} parameters on ${pairs.size} examples, " +
-      s"tokenizer=${model.tokenizer().kind()}, batch=$batchSize, startingStep=$completedSteps, CPU float32")
+      s"tokenizer=${model.tokenizer().kind()}, batch=$batchSize, promptNoise=$promptNoisePercent%, " +
+      s"startingStep=$completedSteps, CPU float32")
     for step <- 1 to steps do
-      val batch = Array.fill(batchSize)(examples(rng.nextInt(examples.size)))
+      val batch = Array.fill(batchSize) {
+        if promptNoisePercent == 0 then examples(rng.nextInt(examples.size))
+        else
+          val (prompt, answer) = pairs(rng.nextInt(pairs.size))
+          val augmented = if rng.nextInt(100) < promptNoisePercent then corruptPrompt(prompt, rng) else prompt
+          example(model.tokenizer(), augmented, answer, model.config.context())
+      }
       model.zeroGrad()
       var lossTotal = 0.0
       for (input, targets) <- batch do
@@ -196,15 +218,39 @@ Arguments:
         lossTotal += loss.data(0)
         loss.backward()
       averageGradients(model, batchSize)
-      val norm = optimizer.step(learningRate(step, steps), 1.0f)
-      if step == 1 || step % 25 == 0 || step == steps then
-        val elapsed = formatElapsed(System.nanoTime() - startedAt)
-        println(f"elapsed=$elapsed%s step=$step%d/$steps%d total=${completedSteps + step}%d loss=${lossTotal / batchSize}%.4f gradNorm=$norm%.4f batch=$batchSize%d")
+      val rate = learningRate(step, steps)
+      val norm = optimizer.step(rate, 1.0f)
+      progress.update(step, lossTotal / batchSize, norm, rate)
     model.saveTraining(output, optimizer, completedSteps + steps)
     println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
     println(s"Prompt: ${pairs.head._1}")
     println(s"Response: ${model.generate(pairs.head._1, 100, 0, 1, 42)}")
     model
+
+  /** Makes one small, meaning-preserving-ish prompt typo for robust supervised training. */
+  private[vanus] def corruptPrompt(prompt: String, rng: scala.util.Random): String =
+    require(prompt.nonEmpty, "Cannot corrupt an empty prompt")
+    val candidates = scala.collection.mutable.ArrayBuffer.empty[String]
+    val withoutEnding = prompt.replaceFirst("[.!?]+$", "")
+    if withoutEnding.nonEmpty && withoutEnding != prompt then candidates += withoutEnding
+    if prompt.contains(',') then candidates += prompt.replaceFirst(",", "")
+
+    val internalLetters = prompt.indices.filter(i => i > 0 && i + 1 < prompt.length &&
+      Character.isLetter(prompt.charAt(i - 1)) && Character.isLetter(prompt.charAt(i)) &&
+      Character.isLetter(prompt.charAt(i + 1)))
+    if internalLetters.nonEmpty then
+      val index = internalLetters(rng.nextInt(internalLetters.size))
+      candidates += prompt.substring(0, index) + prompt.substring(index + 1)
+
+    val adjacentLetters = prompt.indices.dropRight(1).filter(i =>
+      Character.isLetter(prompt.charAt(i)) && Character.isLetter(prompt.charAt(i + 1)))
+    if adjacentLetters.nonEmpty then
+      val index = adjacentLetters(rng.nextInt(adjacentLetters.size))
+      candidates += prompt.substring(0, index) + prompt.charAt(index + 1) + prompt.charAt(index) +
+        prompt.substring(index + 2)
+
+    val usable = candidates.distinct.filter(value => value.nonEmpty && value != prompt)
+    if usable.isEmpty then prompt else usable(rng.nextInt(usable.size))
 
   private def pretrain(baseConfig: ModelConfig, text: String, steps: Int, output: Path,
                        batchSize: Int, requestedVocabulary: Int): Transformer =
@@ -224,6 +270,7 @@ Arguments:
     require(tokens.length >= 2, "Pretraining text must contain at least two tokens")
     val window = math.min(model.config.context() + 1, tokens.length)
     val startedAt = System.nanoTime()
+    val progress = new TrainingProgress(model, "continuous next-token", steps, batchSize, completedSteps, startedAt)
     val merges = tokenizer match
       case bpe: BpeTokenizer => s", merges=${bpe.merges().size()}"
       case _ => ""
@@ -242,10 +289,9 @@ Arguments:
         lossTotal += loss.data(0)
         loss.backward()
       averageGradients(model, batchSize)
-      val norm = optimizer.step(learningRate(step, steps), 1.0f)
-      if step == 1 || step % 25 == 0 || step == steps then
-        val elapsed = formatElapsed(System.nanoTime() - startedAt)
-        println(f"elapsed=$elapsed%s step=$step%d/$steps%d total=${completedSteps + step}%d loss=${lossTotal / batchSize}%.4f gradNorm=$norm%.4f batch=$batchSize%d")
+      val rate = learningRate(step, steps)
+      val norm = optimizer.step(rate, 1.0f)
+      progress.update(step, lossTotal / batchSize, norm, rate)
     model.saveTraining(output, optimizer, completedSteps + steps)
     println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
     model
@@ -262,8 +308,64 @@ Arguments:
   private def modelConfig(size: String): ModelConfig = size match
     case "tiny" => ModelConfig.tiny()
     case "200k" => ModelConfig.vanus200k()
+    case "1m" => ModelConfig.vanus1m()
     case "20m" => ModelConfig.vanus20m()
-    case _ => throw new IllegalArgumentException("Model size must be tiny, 200k or 20m")
+    case _ => throw new IllegalArgumentException("Model size must be tiny, 200k, 1m or 20m")
+
+  /** Emits bounded, time-based progress instead of flooding output on fast runs. */
+  private final class TrainingProgress(model: Transformer, objective: String, steps: Int,
+                                       batchSize: Int, completedSteps: Long, startedAt: Long):
+    private val intervalNanos = 4_000_000_000L
+    private var lastLoggedAt = startedAt
+    private var lastLoggedStep = 0
+    private var windowLoss = 0.0
+    private var windowSteps = 0
+
+    def update(step: Int, loss: Double, gradientNorm: Double, learningRate: Float): Unit =
+      windowLoss += loss
+      windowSteps += 1
+      val now = System.nanoTime()
+      if step == 1 || step == steps || now - lastLoggedAt >= intervalNanos then
+        val elapsedNanos = now - startedAt
+        val intervalSeconds = (now - lastLoggedAt) / 1_000_000_000.0
+        val overallSeconds = elapsedNanos / 1_000_000_000.0
+        val intervalSteps = step - lastLoggedStep
+        val rate = if intervalSeconds > 0.05 then intervalSteps / intervalSeconds
+          else if overallSeconds > 0.05 then step / overallSeconds else 0.0
+        val samplesPerSecond = rate * batchSize
+        val eta = if rate > 0 && step < steps then
+          formatElapsed((((steps - step) / rate) * 1_000_000_000L).toLong)
+        else if step == steps then "00:00:00" else "calculating"
+        val percent = 100.0 * step / steps
+        val averageLoss = windowLoss / windowSteps
+        var weightSquared = 0.0
+        var gradientSquared = 0.0
+        var maximumWeight = 0.0
+        var parameterCount = 0L
+        for parameter <- model.parameters().asScala do
+          parameterCount += parameter.data.length
+          for value <- parameter.data do
+            weightSquared += value.toDouble * value
+            maximumWeight = math.max(maximumWeight, math.abs(value.toDouble))
+          for gradient <- parameter.grad do gradientSquared += gradient.toDouble * gradient
+        val weightRms = math.sqrt(weightSquared / parameterCount)
+        val gradientRms = math.sqrt(gradientSquared / parameterCount)
+        println(f"training elapsed=${formatElapsed(elapsedNanos)}%s progress=$percent%.1f%% " +
+          f"step=$step%d/$steps%d total=${completedSteps + step}%d avgLoss=$averageLoss%.4f " +
+          f"batch=$batchSize%d eta=$eta%s")
+        println(f"  objective=$objective%s tokenizer=${model.tokenizer().kind()}%s " +
+          f"vocabulary=${model.config.vocabulary()}%d context=${model.config.context()}%d " +
+          f"optimizer=AdamW learningRate=$learningRate%.7f " +
+          f"gradNorm=$gradientNorm%.4f rate=$rate%.2f steps/s throughput=$samplesPerSecond%.2f samples/s")
+        println(f"  weights=all trainable tensors=${model.parameters().size()}%d parameters=$parameterCount%d " +
+          f"weightRms=$weightRms%.6f maxAbs=$maximumWeight%.6f gradRms=$gradientRms%.8f")
+        println(s"  architecture=layers:${model.config.layers()} width:${model.config.width()} " +
+          s"hidden:${model.config.hidden()} heads:${model.config.heads()} groups=embedding/tied-output, " +
+          "attention(q,k,v,o), SwiGLU(gate,up,down), RMSNorm gains")
+        lastLoggedAt = now
+        lastLoggedStep = step
+        windowLoss = 0.0
+        windowSteps = 0
 
   private[vanus] def formatElapsed(nanoseconds: Long): String =
     require(nanoseconds >= 0, "Elapsed time cannot be negative")

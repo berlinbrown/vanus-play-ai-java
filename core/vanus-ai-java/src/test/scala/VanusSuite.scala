@@ -135,6 +135,15 @@ class VanusSuite extends munit.FunSuite:
     val model = new Transformer(config, 0)
     assertEquals(model.parameters().asScala.map(_.data.length.toLong).sum, config.parameterCount())
     assertEquals(ModelConfig.vanus20m().parameterCount(), 20309184L)
+    assertEquals(ModelConfig.vanus1m().parameterCount(), 1067040L)
+  }
+
+  test("1M preset constructs with the advertised architecture") {
+    val model = new Transformer(ModelConfig.vanus1m(), 42)
+    assertEquals(model.parameters().asScala.map(_.data.length.toLong).sum, 1067040L)
+    assertEquals(model.config.context(), 256)
+    assertEquals(model.config.layers(), 4)
+    assertEquals(model.config.heads(), 8)
   }
 
   test("AdamW reduces loss and rejects nonfinite gradients before updating") {
@@ -240,4 +249,15 @@ class VanusSuite extends munit.FunSuite:
     assertEquals(Main.formatElapsed(3_661_999_999_999L), "01:01:01")
     assertEquals(Main.formatElapsed(183_845_000_000_000L), "51:04:05")
     intercept[IllegalArgumentException](Main.formatElapsed(-1))
+  }
+
+  test("prompt corruption creates deterministic typo and punctuation variants") {
+    val prompt = "Hello, are you doing?"
+    val variants = (0 until 100).map(seed =>
+      Main.corruptPrompt(prompt, new scala.util.Random(seed))).toSet
+    assert(variants.size >= 3)
+    assert(variants.forall(_.nonEmpty))
+    assert(variants.forall(_ != prompt))
+    assert(variants.contains("Hello, are you doing"))
+    assert(variants.exists(value => value.length == prompt.length - 1))
   }
