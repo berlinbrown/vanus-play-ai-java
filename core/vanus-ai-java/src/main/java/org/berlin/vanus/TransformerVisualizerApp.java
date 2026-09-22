@@ -14,9 +14,13 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import java.awt.*;
 import java.util.Set;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Swing window: model/parameter readout, an animated forward-pass diagram, and a chat box. */
 public final class TransformerVisualizerApp {
+    private static final Logger LOGGER = LogManager.getLogger(TransformerVisualizerApp.class);
+
     private TransformerVisualizerApp() {}
 
     public static void launch(Transformer model, String datasetName, int datasetSize, String checkpointPath, Set<String> knownPrompts) {
@@ -24,6 +28,9 @@ public final class TransformerVisualizerApp {
     }
 
     private static void buildAndShow(Transformer model, String datasetName, int datasetSize, String checkpointPath, Set<String> knownPrompts) {
+        LOGGER.info("[swing] started dataset={} pairs={} checkpoint={} parameters={} tokenizer={} context={}",
+                logText(datasetName), datasetSize, logText(checkpointPath), model.config.parameterCount(),
+                model.tokenizer().kind(), model.config.context());
         JFrame frame = new JFrame("Vanus Transformer Visualizer");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout(8, 8));
@@ -79,6 +86,11 @@ public final class TransformerVisualizerApp {
         return String.format("0x%02X", id);
     }
 
+    /** Keep console events on one readable line even if generated text contains controls. */
+    private static String logText(String text) {
+        return text.replace("\\", "\\\\").replace("\r", "\\r").replace("\n", "\\n");
+    }
+
     /** Randomly select words, preserving their source order and UTF-8 context budget. */
     static String selfTalkPrompt(String reply, int maxBytes, java.util.Random random) {
         if (maxBytes < 5) throw new IllegalArgumentException("Self-talk needs room for hello");
@@ -115,12 +127,25 @@ public final class TransformerVisualizerApp {
         JButton selfTalk = new JButton("Talk to itself");
         javax.swing.JLabel status = new javax.swing.JLabel("Self-talk off");
         class Conversation {
+            static final long RESET_INTERVAL_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(40);
             boolean automatic, busy, closed;
+            boolean resetPrompt;
             int turn;
             String next = "hello";
+            long nextResetAtNanos;
             final java.util.Random random = new java.util.Random();
             final javax.swing.Timer timer = new javax.swing.Timer(2000, e -> {
-                if (!busy && automatic && !closed) { input.setText(next); submit(); }
+                if (!busy && automatic && !closed) {
+                    long now = System.nanoTime();
+                    if (now >= nextResetAtNanos) {
+                        next = random.nextBoolean() ? "hello" : "goodbye";
+                        resetPrompt = true;
+                        nextResetAtNanos = now + RESET_INTERVAL_NANOS;
+                        LOGGER.info("[swing] self-talk reset prompt={} nextReset=40s", next);
+                    }
+                    input.setText(next);
+                    submit();
+                }
                 else if (automatic) status.setText("Still generating; waiting for the next 2-second tick");
             });
             void controls() {
@@ -133,8 +158,11 @@ public final class TransformerVisualizerApp {
                 if (automatic) {
                     automatic = false; timer.stop();
                     status.setText(busy ? "Stopping after current reply" : "Self-talk off");
+                    LOGGER.info("[swing] self-talk stopped turns={}", turn);
                 } else if (!busy && !closed) {
-                    automatic = true; turn = 0; next = "hello";
+                    automatic = true; turn = 0; next = "hello"; resetPrompt = false;
+                    nextResetAtNanos = System.nanoTime() + RESET_INTERVAL_NANOS;
+                    LOGGER.info("[swing] self-talk started interval=2s resetInterval=40s initialPrompt=hello");
                     input.setText(next); timer.start(); submit();
                 }
                 controls();
@@ -145,8 +173,14 @@ public final class TransformerVisualizerApp {
             if (prompt.isEmpty()) return;
             busy = true; controls();
             boolean automaticTurn = automatic;
+            boolean scheduledReset = automaticTurn && resetPrompt;
+            resetPrompt = false;
+            long generationStarted = System.nanoTime();
             String stamp = java.time.LocalTime.now().withNano(0).toString();
             transcript.append((automaticTurn ? "Self-talk #" + (++turn) + " [" + stamp + "]" : "You") + ": " + prompt + "\n");
+            LOGGER.info("[swing] input mode={} turn={} reset={} known={} chars={} text={}",
+                    automaticTurn ? "self-talk" : "user", automaticTurn ? turn : 0, scheduledReset,
+                    knownPrompts.contains(prompt), prompt.length(), logText(prompt));
             if (automaticTurn) status.setText("Generating self-talk reply " + turn);
             input.setText("");
             trace.setText("Prompt token IDs: " + java.util.Arrays.toString(model.tokenizer().prompt(prompt)) + "\n");
@@ -176,13 +210,25 @@ public final class TransformerVisualizerApp {
                     try {
                         String reply = get();
                         transcript.append("Vanus: " + reply + "\n" + note + "\n\n");
+                        long elapsedMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - generationStarted);
+                        LOGGER.info("[swing] output mode={} turn={} elapsedMs={} chars={} text={}",
+                                automaticTurn ? "self-talk" : "user", automaticTurn ? turn : 0,
+                                elapsedMillis, reply.length(), logText(reply));
                         if (automaticTurn && automatic) {
                             next = selfTalkPrompt(reply, model.config.context() - 4, random);
                             input.setText(next);
                             status.setText("Next 2-second tick: " + next);
+                            LOGGER.info("[swing] self-talk queued next={}", logText(next));
                         }
                     }
-                    catch (Exception e) { automatic = false; timer.stop(); status.setText("Self-talk stopped: generation error"); transcript.append("Vanus: [error: " + (e.getCause() == null ? e.getMessage() : e.getCause().getMessage()) + "]\n\n"); }
+                    catch (Exception e) {
+                        automatic = false; timer.stop(); status.setText("Self-talk stopped: generation error");
+                        String message = e.getCause() == null ? e.getMessage() : e.getCause().getMessage();
+                        transcript.append("Vanus: [error: " + message + "]\n\n");
+                        LOGGER.error("[swing] generation error mode={} turn={} message={}",
+                                automaticTurn ? "self-talk" : "user", automaticTurn ? turn : 0,
+                                logText(String.valueOf(message)), e);
+                    }
                     visualizer.stopActivity();
                     busy = false; controls();
                     if (!automatic) { status.setText("Self-talk off"); input.requestFocusInWindow(); }
@@ -224,6 +270,7 @@ public final class TransformerVisualizerApp {
                 conversation.closed = true;
                 conversation.automatic = false;
                 conversation.timer.stop();
+                LOGGER.info("[swing] closed selfTalkTurns={}", conversation.turn);
             }
         });
         return panel;

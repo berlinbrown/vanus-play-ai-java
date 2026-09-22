@@ -154,6 +154,7 @@ arguments; do not type the brackets.
 | `pretrain <size> <text> <steps> <checkpoint> [batch] [bpe-vocab]` | Learns BPE and starts continuous-text pretraining | Yes |
 | `continue-pretrain <checkpoint> <text> <steps> <output> [batch]` | Continues continuous-text pretraining with the saved tokenizer and optimizer | Yes |
 | `gui <checkpoint> [pairs.tsv]` | Opens an existing checkpoint in Swing; the optional TSV fills the prompt dropdown | No |
+| `server <checkpoint> <pairs.tsv> [server options]` | Runs persistent headless self-talk with SQLite and a local JSON API | No |
 | `chat <checkpoint> <prompt...>` | Generates one reply in the terminal | No |
 | `eval <checkpoint> <pairs.tsv>` | Reports generated replies, exact matches, token accuracy, and loss | No |
 | `weights <checkpoint>` | Visualizes one checkpoint's real weights | No |

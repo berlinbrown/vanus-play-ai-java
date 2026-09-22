@@ -71,8 +71,64 @@ Do not type the brackets.
 | `continue <checkpoint> <pairs.tsv> <steps> <output> [batch]` | Continue saved training with automatic light typo augmentation | Required / 1 | Required input and output paths |
 | `continue-pretrain <checkpoint> <text> <steps> <output> [batch]` | Continue raw-text prediction with the saved tokenizer and AdamW state | Required / 1 | Required input and output paths |
 | `gui <checkpoint> [pairs.tsv]` | Open any saved model in Swing without training; optional TSV fills the prompt dropdown | No training | Required input path |
+| `server <checkpoint> <pairs.tsv> [server options]` | Run continuous headless self-talk, persist it to SQLite, and expose two authenticated JSON routes | No training | Required checkpoint and TSV |
 | `chat <checkpoint> <prompt...>` | Load weights and generate one terminal reply | No training | Required input path |
 | `eval <checkpoint> <pairs.tsv>` | Print replies, exact matches, answer-token accuracy, and loss | No training | Required input path |
+
+## Headless AI server
+
+The server loads an existing checkpoint, starts the same style of automatic
+self-talk as the Swing application, and runs until interrupted. It generates a
+turn about every 30 seconds and injects either `hello` or `goodbye` every five
+minutes. Both the prompt and response are appended to `<dir>/vanus.db`; an
+existing database is reused. SQLite uses WAL mode, a 5-second busy timeout, and
+foreign-key enforcement. The newest 1,000 messages are retained.
+
+```sh
+sbt 'run server checkpoints/for-scatty-1m-2k.vanus data/scatty-language/scatty.tsv -p 8086 -d /Users/berlinbrown/Documents/Github/vanus-play-framework/core/server/vanusplay/db --rate-limit 200 -h 127.0.0.1'
+
+./scripts/launch-local-vanus-ai.sh -p 8086 -d /Users/berlinbrown/Documents/Github/vanus-play-framework/core/server/vanusplay/db --rate-limit 200 -h 127.0.0.1
+```
+
+The script defaults to the checkpoint and dataset shown above. Override them
+with `--checkpoint <path>` and `--data <path>`. The `-d` directory is created if
+needed and contains `vanus.db`. The AI server serves REST routes only; unrelated
+paths return 404.
+
+The launcher can be called from any directory using its full path. Its default
+checkpoint, dataset, and database directory are resolved to full paths from the
+script's location:
+
+```sh
+/Users/berlinbrown/gitmain5/git_dir/Github/vanus-play-ai-java/core/vanus-ai-java/scripts/build-deployment.sh
+
+/Users/berlinbrown/gitmain5/git_dir/Github/vanus-play-ai-java/core/vanus-ai-java/scripts/launch-vanus-ai.sh
+```
+
+`build-deployment.sh` creates the self-contained executable JAR at
+`target/scala-3.9.0/vanus-ai-java.jar`. The production launcher runs this JAR
+directly and requires Java 21 or newer; it does not require sbt at runtime. Both
+Java and Scala compilation target Java 21 bytecode, even when the build itself
+runs under a newer JDK. Set `JAVA_BIN` to a specific Java 21 executable when
+needed.
+
+The deliberately simple local access token is:
+
+```text
+dmFudXMtc2NhdHR5LW9wcy0yMDI2
+```
+
+```sh
+curl 'http://127.0.0.1:8086/_vanus-ops-manage/_vanus-bot-status-info?token=dmFudXMtc2NhdHR5LW9wcy0yMDI2'
+
+curl 'http://127.0.0.1:8086/_vanus-ops-manage/_vanus-bot-messages?token=dmFudXMtc2NhdHR5LW9wcy0yMDI2'
+```
+
+The status operation returns the number currently stored. The messages
+operation returns at most 140 rows, newest first, with `id`, UTC `timestamp`,
+`role`, and `message`. API responses use `application/json` and `Cache-Control:
+no-store`. Keep the default loopback host because the hard-coded token is only a
+small guard for local experimentation.
 
 Bare `sbt run` behaves like `sbt 'run info'`. Step counts must be positive whole
 numbers. Supplying `[steps]` to a demo always starts over from random weights and

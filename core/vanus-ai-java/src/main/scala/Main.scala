@@ -3,10 +3,12 @@ package org.berlin.vanus
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.Arrays
+import org.apache.logging.log4j.LogManager
 import scala.jdk.CollectionConverters.*
 
 object Main:
-  private val defaultPromptNoisePercent = 20
+  private val logger = LogManager.getLogger(Main.getClass)
+  private val defaultPromptNoisePercent = 15
   // Default demo corpus; filtered per-config below since the tiny model's context is small.
   private val demoData = Path.of("data/pride-and-prejudice.tsv")
   private val demoDictData = Path.of("data/dictionary2.tsv")
@@ -44,6 +46,8 @@ All application commands:
   continue-pretrain <checkpoint> <text> <steps> <output> [batch]
                                      Continue raw-text next-token pretraining
   gui <checkpoint> [pairs.tsv]       Open saved weights in Swing; never trains
+  server <checkpoint> <pairs.tsv> [server options]
+                                     Run persistent headless self-talk and REST API
   chat <checkpoint> <prompt...>      Generate one terminal reply from saved weights
   eval <checkpoint> <pairs.tsv>      Evaluate saved weights against prompt/reply pairs
 
@@ -122,6 +126,9 @@ Arguments:
         val datasetName = rest.headOption.getOrElse("No prompt dataset")
         TransformerVisualizerApp.launch(Transformer.load(Path.of(checkpoint)), datasetName, pairs.size,
           checkpoint, pairs.map(_._1).toSet.asJava)
+      case "server" :: checkpoint :: input :: serverArgs =>
+        val pairs = loadPairs(Path.of(input))
+        VanusAiServer.run(Transformer.load(Path.of(checkpoint)), pairs.map(_._1).toSet, serverArgs.toArray)
       case "chat" :: checkpoint :: prompt if prompt.nonEmpty =>
         val model = Transformer.load(Path.of(checkpoint))
         println(model.generate(prompt.mkString(" "), 100, 0, 1, 42))
@@ -200,7 +207,7 @@ Arguments:
     val startedAt = System.nanoTime()
     val objective = s"supervised prompt→reply promptNoise=$promptNoisePercent%"
     val progress = new TrainingProgress(model, objective, steps, batchSize, completedSteps, startedAt)
-    println(s"Training ${model.config.parameterCount()} parameters on ${pairs.size} examples, " +
+    logger.info(s"Training ${model.config.parameterCount()} parameters on ${pairs.size} examples, " +
       s"tokenizer=${model.tokenizer().kind()}, batch=$batchSize, promptNoise=$promptNoisePercent%, " +
       s"startingStep=$completedSteps, CPU float32")
     for step <- 1 to steps do
@@ -222,9 +229,9 @@ Arguments:
       val norm = optimizer.step(rate, 1.0f)
       progress.update(step, lossTotal / batchSize, norm, rate)
     model.saveTraining(output, optimizer, completedSteps + steps)
-    println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
-    println(s"Prompt: ${pairs.head._1}")
-    println(s"Response: ${model.generate(pairs.head._1, 100, 0, 1, 42)}")
+    logger.info(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
+    logger.info(s"Prompt: ${pairs.head._1}")
+    logger.info(s"Response: ${model.generate(pairs.head._1, 100, 0, 1, 42)}")
     model
 
   /** Makes one small, meaning-preserving-ish prompt typo for robust supervised training. */
@@ -274,7 +281,7 @@ Arguments:
     val merges = tokenizer match
       case bpe: BpeTokenizer => s", merges=${bpe.merges().size()}"
       case _ => ""
-    println(s"Continuous-text pretraining ${model.config.parameterCount()} parameters on ${tokens.length} tokens, " +
+    logger.info(s"Continuous-text pretraining ${model.config.parameterCount()} parameters on ${tokens.length} tokens, " +
       s"tokenizer=${tokenizer.kind()}, vocabulary=${tokenizer.vocabulary()}$merges, batch=$batchSize, " +
       s"startingStep=$completedSteps, CPU float32")
     for step <- 1 to steps do
@@ -293,7 +300,7 @@ Arguments:
       val norm = optimizer.step(rate, 1.0f)
       progress.update(step, lossTotal / batchSize, norm, rate)
     model.saveTraining(output, optimizer, completedSteps + steps)
-    println(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
+    logger.info(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
     model
 
   private def averageGradients(model: Transformer, batchSize: Int): Unit =
@@ -350,16 +357,16 @@ Arguments:
           for gradient <- parameter.grad do gradientSquared += gradient.toDouble * gradient
         val weightRms = math.sqrt(weightSquared / parameterCount)
         val gradientRms = math.sqrt(gradientSquared / parameterCount)
-        println(f"training elapsed=${formatElapsed(elapsedNanos)}%s progress=$percent%.1f%% " +
+        logger.info(f"training elapsed=${formatElapsed(elapsedNanos)}%s progress=$percent%.1f%% " +
           f"step=$step%d/$steps%d total=${completedSteps + step}%d avgLoss=$averageLoss%.4f " +
           f"batch=$batchSize%d eta=$eta%s")
-        println(f"  objective=$objective%s tokenizer=${model.tokenizer().kind()}%s " +
+        logger.info(f"  objective=$objective%s tokenizer=${model.tokenizer().kind()}%s " +
           f"vocabulary=${model.config.vocabulary()}%d context=${model.config.context()}%d " +
           f"optimizer=AdamW learningRate=$learningRate%.7f " +
           f"gradNorm=$gradientNorm%.4f rate=$rate%.2f steps/s throughput=$samplesPerSecond%.2f samples/s")
-        println(f"  weights=all trainable tensors=${model.parameters().size()}%d parameters=$parameterCount%d " +
+        logger.info(f"  weights=all trainable tensors=${model.parameters().size()}%d parameters=$parameterCount%d " +
           f"weightRms=$weightRms%.6f maxAbs=$maximumWeight%.6f gradRms=$gradientRms%.8f")
-        println(s"  architecture=layers:${model.config.layers()} width:${model.config.width()} " +
+        logger.info(s"  architecture=layers:${model.config.layers()} width:${model.config.width()} " +
           s"hidden:${model.config.hidden()} heads:${model.config.heads()} groups=embedding/tied-output, " +
           "attention(q,k,v,o), SwiGLU(gate,up,down), RMSNorm gains")
         lastLoggedAt = now

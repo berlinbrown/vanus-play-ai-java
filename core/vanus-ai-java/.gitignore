@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 checkpoints/
+logs/
+data/server/
+_deploy
 
 # sbt specific
 dist/*

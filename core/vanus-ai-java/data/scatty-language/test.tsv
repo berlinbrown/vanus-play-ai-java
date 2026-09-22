@@ -1,0 +1,149 @@
+cat happy	cat is happy
+cat is happy. is cat happy?	yes, cat is happy
+cat is happy. is cat sad?	no, cat is happy
+cat is happy. is cat hungry?	no, cat is happy
+cat is happy. is cat tired?	no, cat is happy
+cat is happy. is cat calm?	no, cat is happy
+cat is happy. is cat ready?	no, cat is happy
+cat is not happy. is cat happy?	no, cat is not happy
+cat is happy. how is cat?	cat is happy
+cat is at home. where is cat?	you can find cat at home
+cat is at home. is cat at home?	yes, cat is at home
+cat is at home. is cat at school?	no, cat is at home
+cat is at home. is cat at park?	no, cat is at home
+cat is at home. is cat at shop?	no, cat is at home
+cat is at home. is cat at garden?	no, cat is at home
+cat is at home. is cat at room?	no, cat is at home
+cat has the key. what does cat have?	cat has the key
+cat has the key. who has the key?	cat has the key
+cat is happy. how is friend?	i do not know. tell me about friend
+dog is happy. how is teacher?	i do not know. tell me about teacher
+bird ready	bird is ready
+bird is ready. is bird happy?	no, bird is ready
+bird is ready. is bird sad?	no, bird is ready
+bird is ready. is bird hungry?	no, bird is ready
+bird is ready. is bird tired?	no, bird is ready
+bird is ready. is bird calm?	no, bird is ready
+bird is ready. is bird ready?	yes, bird is ready
+bird is not ready. is bird ready?	no, bird is not ready
+bird is ready. how is bird?	bird is ready
+bird is at room. where is bird?	you can find bird at room
+bird is at room. is bird at home?	no, bird is at room
+bird is at room. is bird at school?	no, bird is at room
+bird is at room. is bird at park?	no, bird is at room
+bird is at room. is bird at shop?	no, bird is at room
+bird is at room. is bird at garden?	no, bird is at room
+bird is at room. is bird at room?	yes, bird is at room
+bird has the box. what does bird have?	bird has the box
+bird has the box. who has the box?	bird has the box
+bird is happy. how is sam?	i do not know. tell me about sam
+fish calm	fish is calm
+fish is calm. is fish happy?	no, fish is calm
+fish is calm. is fish sad?	no, fish is calm
+fish is calm. is fish hungry?	no, fish is calm
+fish is calm. is fish tired?	no, fish is calm
+fish is calm. is fish calm?	yes, fish is calm
+fish is calm. is fish ready?	no, fish is calm
+fish is not calm. is fish calm?	no, fish is not calm
+fish is calm. how is fish?	fish is calm
+fish is at garden. where is fish?	you can find fish at garden
+fish is at garden. is fish at home?	no, fish is at garden
+fish is at garden. is fish at school?	no, fish is at garden
+fish is at garden. is fish at park?	no, fish is at garden
+fish is at garden. is fish at shop?	no, fish is at garden
+fish is at garden. is fish at garden?	yes, fish is at garden
+fish is at garden. is fish at room?	no, fish is at garden
+fish has the bag. what does fish have?	fish has the bag
+fish has the bag. who has the bag?	fish has the bag
+fish is happy. how is alex?	i do not know. tell me about alex
+alex tired	alex is tired
+alex is tired. is alex happy?	no, alex is tired
+alex is tired. is alex sad?	no, alex is tired
+alex is tired. is alex hungry?	no, alex is tired
+alex is tired. is alex tired?	yes, alex is tired
+alex is tired. is alex calm?	no, alex is tired
+alex is tired. is alex ready?	no, alex is tired
+alex is not tired. is alex tired?	no, alex is not tired
+alex is tired. how is alex?	alex is tired
+alex is at shop. where is alex?	you can find alex at shop
+alex is at shop. is alex at home?	no, alex is at shop
+alex is at shop. is alex at school?	no, alex is at shop
+alex is at shop. is alex at park?	no, alex is at shop
+alex is at shop. is alex at shop?	yes, alex is at shop
+alex is at shop. is alex at garden?	no, alex is at shop
+alex is at shop. is alex at room?	no, alex is at shop
+alex has the cup. what does alex have?	alex has the cup
+alex has the cup. who has the cup?	alex has the cup
+alex is happy. how is fish?	i do not know. tell me about fish
+sam hungry	sam is hungry
+sam is hungry. is sam happy?	no, sam is hungry
+sam is hungry. is sam sad?	no, sam is hungry
+sam is hungry. is sam hungry?	yes, sam is hungry
+sam is hungry. is sam tired?	no, sam is hungry
+sam is hungry. is sam calm?	no, sam is hungry
+sam is hungry. is sam ready?	no, sam is hungry
+sam is not hungry. is sam hungry?	no, sam is not hungry
+sam is hungry. how is sam?	sam is hungry
+sam is at park. where is sam?	you can find sam at park
+sam is at park. is sam at home?	no, sam is at park
+sam is at park. is sam at school?	no, sam is at park
+sam is at park. is sam at park?	yes, sam is at park
+sam is at park. is sam at shop?	no, sam is at park
+sam is at park. is sam at garden?	no, sam is at park
+sam is at park. is sam at room?	no, sam is at park
+sam has the ball. what does sam have?	sam has the ball
+sam has the ball. who has the ball?	sam has the ball
+sam is happy. how is bird?	i do not know. tell me about bird
+teacher sad	teacher is sad
+teacher is sad. is teacher happy?	no, teacher is sad
+teacher is sad. is teacher sad?	yes, teacher is sad
+teacher is sad. is teacher hungry?	no, teacher is sad
+teacher is sad. is teacher tired?	no, teacher is sad
+teacher is sad. is teacher calm?	no, teacher is sad
+teacher is sad. is teacher ready?	no, teacher is sad
+teacher is not sad. is teacher sad?	no, teacher is not sad
+teacher is sad. how is teacher?	teacher is sad
+teacher is at school. where is teacher?	you can find teacher at school
+teacher is at school. is teacher at home?	no, teacher is at school
+teacher is at school. is teacher at school?	yes, teacher is at school
+teacher is at school. is teacher at park?	no, teacher is at school
+teacher is at school. is teacher at shop?	no, teacher is at school
+teacher is at school. is teacher at garden?	no, teacher is at school
+teacher is at school. is teacher at room?	no, teacher is at school
+teacher has the book. what does teacher have?	teacher has the book
+teacher has the book. who has the book?	teacher has the book
+teacher is happy. how is dog?	i do not know. tell me about dog
+friend happy	friend is happy
+friend is happy. is friend happy?	yes, friend is happy
+friend is happy. is friend sad?	no, friend is happy
+friend is happy. is friend hungry?	no, friend is happy
+friend is happy. is friend tired?	no, friend is happy
+friend is happy. is friend calm?	no, friend is happy
+friend is happy. is friend ready?	no, friend is happy
+friend is not happy. is friend happy?	no, friend is not happy
+friend is happy. how is friend?	friend is happy
+friend is at home. where is friend?	you can find friend at home
+friend is at home. is friend at home?	yes, friend is at home
+friend is at home. is friend at school?	no, friend is at home
+friend is at home. is friend at park?	no, friend is at home
+friend is at home. is friend at shop?	no, friend is at home
+friend is at home. is friend at garden?	no, friend is at home
+friend is at home. is friend at room?	no, friend is at home
+friend has the key. what does friend have?	friend has the key
+friend has the key. who has the key?	friend has the key
+friend is happy. how is cat?	i do not know. tell me about cat
+the key is red. what color is the key?	the key is red
+the key is red. is the key red?	yes, the key is red
+the key is not red. is the key red?	no, the key is not red
+the bag is white. what color is the bag?	the bag is white
+the bag is white. is the bag white?	yes, the bag is white
+the bag is not white. is the bag white?	no, the bag is not white
+the box is green. what color is the box?	the box is green
+the box is green. is the box green?	yes, the box is green
+the box is not green. is the box green?	no, the box is not green
+i feel hungry	take a break and eat some food
+i feel thirsty	take a break and drink some water
+i feel tired	find a quiet place and rest
+i feel cold	wear a warm coat and go inside
+i feel lost	ask for help to find your way home
+i feel sad	talk to a friend. you are not alone
