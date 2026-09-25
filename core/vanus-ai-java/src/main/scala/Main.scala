@@ -13,6 +13,9 @@ object Main:
   private val demoData = Path.of("data/pride-and-prejudice.tsv")
   private val demoDictData = Path.of("data/dictionary2.tsv")
   def main(args: Array[String]): Unit =
+    val versionMessage = s"Vanus AI version ${VanusConstants.ApplicationVersion}"
+    System.out.println(versionMessage)
+    logger.info(versionMessage)
     requireJava21()
     args.toList match
       case Nil | "info" :: Nil =>
@@ -200,9 +203,10 @@ Arguments:
     require(batchSize > 0, "Positive batch size required")
     require(promptNoisePercent >= 0 && promptNoisePercent <= 100,
       "Prompt noise percentage must be between 0 and 100")
-    val examples = if promptNoisePercent == 0 then
-      pairs.map((p, a) => example(model.tokenizer(), p, a, model.config.context()))
-    else Vector.empty
+    val examples = pairs.map { (prompt, answer) =>
+      val (input, targets) = example(model.tokenizer(), prompt, answer, model.config.context())
+      SupervisedSample(prompt, prompt, answer, input, targets)
+    }
     val rng = new scala.util.Random(42)
     val startedAt = System.nanoTime()
     val objective = s"supervised prompt→reply promptNoise=$promptNoisePercent%"
@@ -216,23 +220,79 @@ Arguments:
         else
           val (prompt, answer) = pairs(rng.nextInt(pairs.size))
           val augmented = if rng.nextInt(100) < promptNoisePercent then corruptPrompt(prompt, rng) else prompt
-          example(model.tokenizer(), augmented, answer, model.config.context())
+          val (input, targets) = example(model.tokenizer(), augmented, answer, model.config.context())
+          SupervisedSample(prompt, augmented, answer, input, targets)
       }
+      val traceIndex = batch.indices.minBy(index => batch(index).input.length)
       model.zeroGrad()
       var lossTotal = 0.0
-      for (input, targets) <- batch do
-        val loss = model.forward(input).crossEntropy(targets)
+      var traceLoss = 0.0
+      var traceLogitRows = 0
+      var traceLogitColumns = 0
+      for (sample, index) <- batch.zipWithIndex do
+        val logits = model.forward(sample.input)
+        val loss = logits.crossEntropy(sample.targets)
         lossTotal += loss.data(0)
+        if index == traceIndex then
+          traceLoss = loss.data(0)
+          traceLogitRows = logits.rows
+          traceLogitColumns = logits.cols
         loss.backward()
       averageGradients(model, batchSize)
       val rate = learningRate(step, steps)
+      val observedWeight = model.parameters().iterator().next()
+      val weightBefore = observedWeight.data(0)
       val norm = optimizer.step(rate, 1.0f)
-      progress.update(step, lossTotal / batchSize, norm, rate)
+      val weightAfter = observedWeight.data(0)
+      if progress.update(step, lossTotal / batchSize, norm, rate) then
+        logTrainingTrace(model, step, batch(traceIndex), traceLoss, traceLogitRows,
+          traceLogitColumns, norm, rate, weightBefore, weightAfter)
     model.saveTraining(output, optimizer, completedSteps + steps)
     logger.info(s"Saved $output after ${formatElapsed(System.nanoTime() - startedAt)}")
     logger.info(s"Prompt: ${pairs.head._1}")
     logger.info(s"Response: ${model.generate(pairs.head._1, 100, 0, 1, 42)}")
     model
+
+  private final case class SupervisedSample(originalPrompt: String, trainingPrompt: String,
+                                            answer: String, input: Array[Int], targets: Array[Int])
+
+  /** Logs one real batch sentence only when the bounded progress logger emits. */
+  private def logTrainingTrace(model: Transformer, step: Int, sample: SupervisedSample,
+                               loss: Double, logitRows: Int, logitColumns: Int,
+                               gradientNorm: Double, learningRate: Float,
+                               weightBefore: Float, weightAfter: Float): Unit =
+    val changed = java.lang.Float.floatToIntBits(weightBefore) != java.lang.Float.floatToIntBits(weightAfter)
+    val noise = if sample.originalPrompt == sample.trainingPrompt then "none"
+      else s"original=${shortText(sample.originalPrompt)}"
+    logger.info(s"training trace step=$step: text → tokenizer → token IDs → Transformer → loss " +
+      "→ Tensor.backward() → gradients → AdamW → updated weights")
+    logger.info(s"  text prompt=${shortText(sample.trainingPrompt)} response=${shortText(sample.answer)} " +
+      s"promptNoise=$noise")
+    logger.info(s"  tokenizer=${model.tokenizer().kind()} inputTokenIds=${formatTokenIds(sample.input)} " +
+      s"targetTokenIds=${formatTokenIds(sample.targets)}")
+    logger.info(f"  Transformer inputShape=[${sample.input.length}%d] " +
+      f"logitsShape=[$logitRows%d,$logitColumns%d] nextTokenClasses=${model.config.vocabulary()}%d " +
+      f"loss=$loss%.4f")
+    logger.info(f"  Tensor.backward gradients=allTrainableParameters globalNorm=$gradientNorm%.4f " +
+      f"AdamW learningRate=$learningRate%.7f clipLimit=1.0")
+    logger.info(f"  updatedWeights=$changed observedWeightBefore=$weightBefore%.8f " +
+      f"observedWeightAfter=$weightAfter%.8f delta=${weightAfter - weightBefore}%.8f")
+
+  private def shortText(value: String, maximum: Int = 90): String =
+    val visible = value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+    val shortened = if visible.length <= maximum then visible else visible.take(maximum - 1) + "…"
+    '"' + shortened + '"'
+
+  private def formatTokenIds(values: Array[Int], maximum: Int = 48): String =
+    def label(value: Int): String = value match
+      case id if id < 0 => "MASK"
+      case ByteTokenizer.BOS => "BOS"
+      case ByteTokenizer.EOS => "EOS"
+      case ByteTokenizer.USER => "USER"
+      case ByteTokenizer.ASSISTANT => "ASSISTANT"
+      case id => id.toString
+    val shown = values.take(maximum).map(label).mkString(",")
+    if values.length <= maximum then s"[$shown]" else s"[$shown,… +${values.length - maximum}]"
 
   /** Makes one small, meaning-preserving-ish prompt typo for robust supervised training. */
   private[vanus] def corruptPrompt(prompt: String, rng: scala.util.Random): String =
@@ -328,7 +388,8 @@ Arguments:
     private var windowLoss = 0.0
     private var windowSteps = 0
 
-    def update(step: Int, loss: Double, gradientNorm: Double, learningRate: Float): Unit =
+    /** Returns true when this call emitted the four-second progress block. */
+    def update(step: Int, loss: Double, gradientNorm: Double, learningRate: Float): Boolean =
       windowLoss += loss
       windowSteps += 1
       val now = System.nanoTime()
@@ -373,6 +434,8 @@ Arguments:
         lastLoggedStep = step
         windowLoss = 0.0
         windowSteps = 0
+        true
+      else false
 
   private[vanus] def formatElapsed(nanoseconds: Long): String =
     require(nanoseconds >= 0, "Elapsed time cannot be negative")

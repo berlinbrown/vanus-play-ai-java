@@ -282,10 +282,11 @@ greeting checkpoint remains the verified choice for the three example greetings.
 
 ## Architecture
 
-Vanus uses pre-RMSNorm, rotary position embeddings (RoPE), causal multi-head
-self-attention, SwiGLU feed-forward layers, residual connections, and tied input
-embedding/output weights. These are real transformer components, but Vanus uses
-its own dimensions and checkpoint format and is not compatible with LLaMA.
+Inspired by the [LLaMA paper](https://arxiv.org/abs/2302.13971): pre-RMSNorm,
+rotary position embeddings (RoPE), causal multi-head attention, and SwiGLU.
+Vanus also uses residual connections and tied input embedding/output weights.
+It has its own implementation, dimensions, byte tokenizer, training code, and
+checkpoint format, and it is not compatible with LLaMA checkpoints.
 
 ```text
 token IDs [T]
@@ -338,7 +339,7 @@ excluded from decay.
 
 Supervised training samples examples with replacement using deterministic seed
 42. To improve tolerance for ordinary typing differences without adding CLI
-arguments, 20% of sampled prompts receive one temporary small change: a missing
+arguments, 15% of sampled prompts receive one temporary small change: a missing
 internal letter, swapped adjacent letters, removed comma, or removed ending
 punctuation. The other 80% remain clean, and dataset files are never modified.
 Training masks prompt targets, supervises answer tokens through EOS, and uses a base learning
@@ -347,16 +348,19 @@ a 10% floor at the final step. Gradients are averaged across the command-specifi
 batch before the optimizer step. Continuous-text pretraining instead samples
 windows from one encoded raw-text stream and predicts every next token. Training
 logs at the first step, approximately every four seconds, and at the final step.
-Each report is a compact four-line block. It shows `elapsed=HH:MM:SS`, percentage,
+Each report begins with a compact four-line progress block. It shows `elapsed=HH:MM:SS`, percentage,
 segment and cumulative steps, recent average loss, batch size, estimated time,
 the learning objective, tokenizer, vocabulary, context, AdamW learning rate,
 pre-clipping gradient norm, and throughput. It also confirms that every
 trainable tensor is updating and reports parameter/tensor counts, weight RMS,
 maximum absolute weight, gradient RMS, architecture dimensions, and the trained
 weight groups: embedding/tied output, attention Q/K/V/O, SwiGLU gate/up/down,
-and RMSNorm gains. The time interval keeps long jobs visible without producing
-a line for every update. The save message reports total elapsed time; hours may
-exceed 24 for multi-day runs.
+and RMSNorm gains. A bounded sentence trace then follows one real, short example
+from that batch through text, tokenizer IDs, Transformer output shape and loss,
+`Tensor.backward()`, the global gradient norm, and the AdamW weight update. Token
+lists and text are truncated when necessary. The same four-second interval keeps
+long jobs visible without producing a trace for every update. The save message
+reports total elapsed time; hours may exceed 24 for multi-day runs.
 
 CLI and GUI generation use temperature zero and top-k one, which is greedy and
 deterministic. The Java API also supports temperature and top-k sampling. During

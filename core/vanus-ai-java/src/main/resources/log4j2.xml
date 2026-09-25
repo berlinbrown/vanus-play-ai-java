@@ -6,8 +6,8 @@
         </Console>
 
         <RollingFile name="RollingFile"
-                     fileName="logs/vanus.log"
-                     filePattern="logs/archive/vanus-%d{yyyy-MM-dd}-%i.log.gz"
+                     fileName="/var/log/umbra/vanus.log"
+                     filePattern="/var/log/umbra/archive-vanus-%d{yyyy-MM-dd}-%i.log.gz"
                      createOnDemand="true">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{36} - %msg%n"/>
             <Policies>
@@ -15,7 +15,7 @@
                 <SizeBasedTriggeringPolicy size="60 MB"/>
             </Policies>
             <DefaultRolloverStrategy min="1" max="8" fileIndex="min">
-                <Delete basePath="logs/archive" maxDepth="1">
+                <Delete basePath="/var/log/umbra" maxDepth="1">
                     <IfFileName glob="vanus-*.log.gz"/>
                     <IfAccumulatedFileCount exceeds="8"/>
                 </Delete>

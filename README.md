@@ -5,9 +5,19 @@ Java autograd, and a small Scala command-line trainer. It uses no PyTorch,
 pretrained weights, native BLAS, or external tokenizer. It includes its own raw
 byte and educational BPE tokenizers.
 
+For a shorter implementation of the same prompt/reply experiment using
+PyTorch and console chat, see [python/README.md](python/README.md).
+
 ## Is this a real LLM?
 
 Architecturally, yes: causal self-attention, RoPE, RMSNorm, SwiGLU, backprop through an autograd tape, AdamW, and autoregressive next-token prediction via cross-entropy are the same pieces production transformers use (see Architecture below). Nothing special-cases words or does string matching; every response comes out of matrix multiplications over learned weights.
+
+The Java transformer architecture is inspired by the
+[LLaMA paper](https://arxiv.org/abs/2302.13971), particularly its pre-RMSNorm,
+rotary position embeddings, causal multi-head attention, and SwiGLU components.
+Vanus implements these ideas independently at an educational scale and cannot
+load LLaMA checkpoints. The detailed architecture is in the
+[Java module README](core/vanus-ai-java/README.md#architecture).
 
 ## ELI5: how Vanus works
 

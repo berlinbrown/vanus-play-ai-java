@@ -60,7 +60,8 @@ object VanusConstants:
   val CorsWildcard = "*"
   val CorsMaxAgeSeconds = 151200
  
-  val VanusVersionValue = "\"vers 0.1\""
+  val ApplicationVersion = "1.0.1"
+  val VanusVersionValue = s"\"vers $ApplicationVersion\""
   val ContentSecurityPolicyValue =
     "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; " +
       "object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; " +

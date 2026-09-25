@@ -1,7 +1,7 @@
 val scala3Version = "3.9.0"
 
 ThisBuild / organization := "org.berlin.vanus"
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "1.0.1"
 ThisBuild / scalaVersion := scala3Version
 
 lazy val root = project
@@ -29,6 +29,8 @@ lazy val root = project
       "org.apache.logging.log4j" % "log4j-api" % "2.25.5",
       "org.apache.logging.log4j" % "log4j-core" % "2.25.5",
       "org.xerial" % "sqlite-jdbc" % "3.53.4.0",
+      "org.apache.httpcomponents" % "httpclient" % "4.5.14" % Test,
+      "org.apache.httpcomponents" % "httpmime" % "4.5.14" % Test,
       "org.scalameta" %% "munit" % "1.3.6" % Test
     )
   )

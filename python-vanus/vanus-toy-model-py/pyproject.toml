@@ -1,0 +1,29 @@
+[project]
+name = "vanus-toy-model-py"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Berlin Brown", email = "berlin.brown@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=5.0.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "psutil>=7.2.2",
+    "safetensors>=0.8.0",
+    "tensorboard>=2.21.0",
+    "tokenizers>=0.23.2",
+    "torch>=2.14.0",
+    "tqdm>=4.70.1",
+    "transformers>=5.17.0",
+]
+
+[project.scripts]
+vanus-toy-model-py = "vanus_toy_model_py:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"

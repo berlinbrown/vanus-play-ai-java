@@ -1,0 +1,226 @@
+ One of the interesting things you can do with the new AI LLM technology is rebuild AI with AI.  Here is a project to take some of the python based technology and convert into Java, a small toy LLM in Java and Scala wrapper.  It is not practical due to performance issues but you can see the use of basic procedural and OOP concepts for the LLM.  Used AI for the documentation and generated code.
+
+https://github.com/berlinbrown/vanus-play-ai-java
+
+An educational decoder-only transformer implemented with Java numerical kernels,
+
+Java autograd, and a small Scala command-line trainer. It uses no PyTorch,
+
+pretrained weights, native BLAS, or external tokenizer.
+
+Architecturally, yes: causal self-attention, RoPE, RMSNorm, SwiGLU, backprop through an autograd tape, AdamW, and autoregressive next-byte prediction via cross-entropy are the same pieces production transformers use (see Architecture below). Nothing special-cases words or does string matching; every response comes out of matrix multiplications over learned weights.
+
+There has been a lot of discussion lately about artificial intelligence ending humanity. Maybe it happens in one year. Maybe it happens in ten. Depending on whom you ask, there is some percentage chance that AI eventually wipes us out.
+
+I am not going to lean completely one way or the other. I am an engineer, not an AI safety researcher, but I do have some thoughts about the logic behind that proposition.
+
+A recent CNN article gave one of the more direct versions of the argument:
+
+https://www.cnn.com/2026/09/17/tech/how-will-ai-exterminate-humanity-cec
+
+One thing I continually hear, even when reporters interview leaders of major AI companies, is some version of this question:
+
+"Could AI destroy humanity?"
+
+And sometimes the answer is essentially: yes, it could, possibly within some number of years.
+
+What I don't hear discussed nearly enough is how. That seems like an important part of the argument.
+
+If someone says there is a meaningful probability that AI will exterminate humanity within ten years, I want to see the chain of events that gets us there. What capabilities does the AI need? What infrastructure does it control? What physical systems does it interact with? What humans cooperate with it? What safeguards fail?
+
+Most importantly: how does the scenario go from "very dangerous" to "human extinction"?
+
+What About Humanity Destroying Humanity?
+There are more than eight billion human beings on Earth.
+
+Humans already possess an extraordinary collection of dangerous technologies: nuclear weapons, biological agents, chemical weapons, cyberwarfare capabilities, autonomous and semi-autonomous weapons, drones, and conventional military systems.
+
+Humans also kill other humans on a large scale.
+
+The United Nations Office on Drugs and Crime estimated approximately 458,000 victims of intentional homicide worldwide in 2021.
+
+The world population is approximately 8.3 billion people.
+
+There are about roughly 6.1 billion people are adults. 
+
+There are about 3.7 billion to 4 billion people
+
+There were 20,162 recorded homicides in the U.S. in 2024 
+
+
+There are about 400,000 to 458,000 people are victims of intentional homicide globally 
+
+That is horrifying, but it also illustrates something important about scale.
+
+Humans are unfortunately quite capable of killing humans, yet even with billions of people, organized militaries, governments, terrorist organizations, criminal organizations, weapons and centuries of warfare, exterminating humanity is an entirely different problem.
+
+It reminds of when I was looking at the history of the Ebola virus and even then I think we had the opposite problem, top scientists yelled that there could be a major issue and no one listened.  Even today, there are outbreaks happen, not getting a lot of international attention.  From what I understand the USAMRIID has a repository of various viruses that if released could be very dangerous.  There are strick physical protocols for who handles what.  
+
+
+https://en.wikipedia.org/wiki/United_States_Army_Medical_Research_Institute_of_Infectious_Diseases
+
+There are also ways that people could attack critical infrastructure using technology that exists today. Power grids, communications networks, transportation systems and financial infrastructure are obvious targets.
+
+These are serious threats. But "serious threat to society" and "extinction of humanity" are very different claims. That distinction matters.
+
+What About AI?
+Going back to the CNN article, one scenario involves AI helping someone develop or deploy a deadly biological agent.
+
+That deserves serious consideration. But again, I want to understand the mechanism.
+
+Dangerous biological agents already exist. Governments and research institutions already maintain high-security facilities, physical containment procedures and strict controls around certain pathogens.
+
+An AI potentially lowering the knowledge barrier for biological attacks is a legitimate security concern. But even in a scenario where an AI tricks or assists someone, a long chain of things still has to happen.
+
+Someone needs access to materials. Someone needs equipment. Someone needs laboratory capabilities.
+
+Physical security systems have to fail. Monitoring systems have to fail. Other humans have to fail to notice what is happening.
+
+And finally, whatever is created has to be capable of causing damage on a civilization-ending or species-ending scale.
+
+Maybe such a chain is possible. I don't dismiss it.
+
+But the chain itself should be part of the discussion.
+
+We already live in a world containing dangerous biological materials. AI doesn't have to invent danger for danger to exist.
+
+Why Ten Years? Why Ten Percent?
+This is another part of the AI-extinction discussion that bothers me.
+
+Why ten years? Why not eight? Why not six?
+
+And when someone says there is a 10% probability of catastrophe, where does that number come from?
+
+Why 10% instead of 8% or 17%?
+
+Predictions about rapidly developing technologies are notoriously difficult.
+
+OpenAI was founded in 2015. Anthropic was founded in 2021. The modern generative-AI industry itself has transformed dramatically in only a few years.
+
+Go back ten years and ask how accurately even experts could have described the AI industry of 2026.
+
+Could they have predicted today's companies, products, compute requirements, capabilities, limitations and economics with enough precision to assign reliable probabilities to them?
+
+Maybe some could have predicted the general direction. That's different from predicting specific outcomes.
+
+This doesn't mean long-term AI predictions are worthless. Companies absolutely should create five- and ten-year projections. Researchers should think about technological trends, capabilities and risks.
+
+But there is a major difference between:
+
+"AI capabilities will probably continue improving."
+
+and:
+
+"There is a 10% probability AI will exterminate humanity within ten years."
+
+The second statement sounds much more mathematically precise than our knowledge of the future may justify.
+
+That doesn't automatically make it wrong. It does make me want to know how that probability was calculated.
+
+Autonomous Weapons Worry Me More
+The article also discusses AI-controlled weapons and robots.
+
+This scenario concerns me more because we can already see pieces of it happening.
+
+Modern warfare has demonstrated how important drones have become. Russia and Ukraine have extensively used drones for surveillance and attacks. Now imagine increasingly autonomous systems identifying, tracking and attacking targets with less human involvement.
+
+That doesn't require science fiction.
+
+The technological progression is fairly easy to imagine because many of the pieces already exist.
+
+AI-controlled physical weapons could potentially produce enormous casualties.
+
+But even here, there is another leap between "AI makes warfare substantially more dangerous" and "AI kills every human being."
+
+I want to understand that leap.
+
+AI Takes Over the Internet
+Another scenario is an AI escaping onto the Internet, replicating itself and operating independently.
+
+This one raises a different set of questions for me. Replicate itself where?
+
+Modern frontier AI systems require substantial computing infrastructure. They don't simply exist as a magical program floating around the Internet.
+
+Could a sophisticated AI compromise servers, distribute components of itself and create something resembling a botnet?
+
+What does it do? Create ad-supported websites? Send spam? Run cyberattacks? Steal computing resources?  Those things could certainly cause enormous economic and security problems. But again, we have moved from "AI exterminates humanity" to something more recognizable: an extremely sophisticated cyberattack.
+
+I also find the compute question fascinating.
+
+We regularly hear about AI companies building enormous data centers and acquiring huge numbers of GPUs because frontier models require tremendous computational resources.
+
+Then, in the extinction scenario, the AI apparently escapes and becomes completely independent.
+
+Where is it running? My Chromebook? My personal WordPress server?
+
+If an AI can somehow transform millions of ordinary computers into a giant distributed intelligence, that itself would be one of the most remarkable technological breakthroughs in computer science.
+
+I would like to understand that mechanism before jumping to the next step of the argument.
+
+When Prediction Starts Looking Like Faith
+This is where my skepticism really comes from.
+
+Some AI-extinction discussions remind me of historical doomsday predictions—not because AI researchers are religious or because AI risks aren't real, but because the reasoning can sometimes become difficult to falsify.
+
+Faith-based reasoning is a cognitive or philosophical approach where conclusions are derived from core religious or spiritual beliefs ("faith") rather than purely empirical evidence or secular logic
+
+
+Predicting the end of the world without empirical evidence is a classic, extreme manifestation of faith-based reasoning, often driven by deep-seated psychological and sociological needs. 
+
+But connecting imaginable events together does not automatically make the entire sequence probable.
+
+The farther into the chain we go, the more assumptions we accumulate.
+
+That is where I think discussions about existential AI risk need to become more concrete rather than less concrete.
+
+Show me the mechanism, Show me the dependencies. Show me the failure points.
+
+And show me how we get from a dangerous AI incident to eight billion people disappearing.
+
+The Current State of AI
+Maybe part of my skepticism comes from using this technology regularly.
+
+I think large language models are one of the most interesting technologies I have encountered.  But I am still somewhat unimpressed by the gap between today's systems and some of the claims being made about tomorrow's systems.  Google and Yahoo search also seemed incredible when I first encountered Internet search in the 1990s. Technologies can be revolutionary without immediately becoming omnipotent.
+
+There are still things I am waiting to see from AI:
+
+AI providing dramatically better automated support during IVR/customer-service calls.
+AI independently building a substantial, production-quality application that people actually use.
+A genuinely new operating system or major hardware platform substantially designed by AI.
+AI making a major breakthrough toward curing cancer or another major disease.
+AI meaningfully improving something messy and physical, such as urban traffic.
+AI systems that operate independently for long periods without constantly depending on human prompts, infrastructure and supervision.
+And while we're at it, fix the Windows blue screen and the spinning beach ball on my Mac.
+I expect AI to improve dramatically.  I expect it to change software development, science, business, warfare and probably many things I haven't considered. And some of those developments could absolutely be dangerous. But extraordinary predictions deserve detailed mechanisms. If AI has a meaningful chance of exterminating humanity, don't just give me the percentage.
+
+Document Cleaned up Open AI - Chat GPT
+
+I had GPT rewrite this post.
+
+https://www.myberlinaustin-atl.com/2008/06/is-java-new-cobol-yes-what-does-that_14.html
+
+
+In 2008 there is a phrase floating around the software community: “Java is the new COBOL.” Usually it is followed by complaints about EJBs, XML configuration, enterprise frameworks, or somebody announcing that Ruby on Rails is going to replace everything. I think that misses the more interesting question. The important question isn't whether Java sucks. The question is what happened to COBOL, and whether Java developers should learn something from it.
+
+COBOL was created in 1959 and became enormously important for business computing. Banks, insurance companies, governments, and other large organizations built critical systems with it. Many of those systems still work. That is worth emphasizing because old technology is not necessarily bad technology. If a banking system has processed transactions correctly for decades, replacing it simply because the programming language isn't fashionable would be ridiculous. Reliability matters. Stability matters. Existing knowledge and infrastructure matter. There are plenty of situations where leaving a working COBOL system alone is probably the best engineering decision.
+
+But there is another side to that success. A technology can become so entrenched in a particular environment that maintaining the existing system becomes more important than exploring better ways to build the next system. Eventually you have software that nobody particularly wants to change, written using practices established many years earlier, surrounded by infrastructure that is difficult and expensive to replace. The technology still works, but the world around it has changed. That, to me, is the interesting part of the comparison between Java and COBOL.
+
+I work with Java, and I don't hate Java. In fact, Java has a lot going for it. The JVM is a sophisticated runtime, the ecosystem contains an enormous number of useful libraries, and Java is used successfully in complicated production systems. But Java enterprise development also has a tendency toward complexity. A developer trying to build a relatively simple web application can end up combining an application server, Spring, Hibernate, Struts, JSF, Log4j, XML deployment descriptors, property files, build tools, and several other libraries before much application functionality has actually been written. At some point an engineer has to ask a very basic question: Why am I doing all of this?
+
+I ran into this myself when I needed to convert HTML into PDF documents. Most of my work wasn't really programming. I researched libraries, found one that supported the HTML and CSS features I needed, added it to the application, and connected the pieces. Full-text search is another example. If I need search, I can use Lucene. I don't need to write an indexing and retrieval system myself. Modern software development increasingly involves finding existing components and integrating them into a larger system. That means being a good Java developer isn't simply about knowing Java. It is about understanding the problem well enough to decide what technology should solve each part of it.
+
+That is where programming-language loyalty becomes dangerous. Java developers already use multiple languages and formats whether they admit it or not: JavaScript, SQL, HTML, XML, shell scripts and sometimes C or C++. Why should introducing Python, Ruby, Erlang, Lisp, Scala, Haskell or another general-purpose language suddenly become unacceptable? Erlang might make sense for a highly concurrent messaging component. Python might make sense for a small utility. Java might make sense for a large enterprise service. The architecture should follow the requirements rather than forcing every requirement through the technology the development team happens to know best.
+
+Of course, this doesn't mean that every project should become a collection of ten programming languages. Introducing another language creates real costs. Someone has to understand it, deploy it, debug it and maintain it five years later. The available developers matter. The existing infrastructure matters. Security, database support, performance, tooling and operational support matter. A technically elegant language that nobody on the team can maintain may be a worse engineering choice than a boring technology everyone understands. But those are engineering arguments. “We have always used Java” is not an engineering argument.
+
+This is where I think the COBOL comparison becomes useful. The danger isn't that Java syntax will somehow turn into COBOL syntax. The danger is cultural. A successful technology accumulates developers, vendors, frameworks, certifications, consultants and enormous amounts of production software. Eventually the ecosystem becomes capable of solving almost anything. Ironically, that can make developers less willing to ask whether it should solve everything. COBOL found an enormously successful niche and remained there for decades. Java could eventually fall into a similar role: extremely important, heavily used, highly reliable, and increasingly associated with maintaining enormous existing systems rather than exploring new approaches.
+
+I don't think the solution is to abandon Java. That would be the same kind of technology religion in the opposite direction. Replacing Java simply because another language is newer accomplishes nothing. The better approach is to remain technically curious. Learn how other languages solve problems. Understand functional programming. Look at message-passing systems. Experiment with Lisp. Try Python. Look at Erlang. Learn what the JVM itself actually does. Even if none of those technologies ends up in production, understanding them gives you another way to think about the systems you are building.
+
+Ultimately, software development isn't about defending Java, COBOL, Ruby, Lisp, or whatever language happens to be popular this year. It isn't even primarily about developers. We are building systems for users. The user doesn't care whether the application uses Java, Erlang or COBOL. The user cares that the system works, that it is reliable, that it performs well, and that it can evolve when their requirements change.
+
+So when somebody asks me whether Java is the new COBOL, my answer isn't simply yes or no. I think the better question is directed at the developer: Twenty years from now, will you still be using Java because it remains the best technology for the problem you are solving, or because Java is the only technology you ever bothered to learn?
+
+That distinction matters.
+

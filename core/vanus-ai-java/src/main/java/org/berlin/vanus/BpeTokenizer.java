@@ -4,7 +4,9 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Minimal byte-pair encoding tokenizer: raw UTF-8 bytes plus learned adjacent-token merges. */
+/** 
+ * Minimal byte-pair encoding tokenizer: raw UTF-8 bytes plus learned adjacent-token merges. 
+ */
 public final class BpeTokenizer implements TextTokenizer {
     public record Merge(int left, int right) {}
     private final List<Merge> merges;

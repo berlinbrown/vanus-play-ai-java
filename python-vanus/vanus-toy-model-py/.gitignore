@@ -1,0 +1,122 @@
+# ---------------------------------------------------------
+# Python
+# ---------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python packaging and build output
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+
+# Test and analysis caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+
+# ---------------------------------------------------------
+# Environment variables and secrets
+# ---------------------------------------------------------
+
+.env
+.env.*
+!.env.example
+
+# Hugging Face credentials or local configuration
+.huggingface/
+
+
+# ---------------------------------------------------------
+# Generated training data
+# ---------------------------------------------------------
+
+# Downloaded and normalized corpora
+data/raw/
+
+# Tokenized and split training files
+data/processed/
+
+# Optional private source material
+data/pre-raw/private/
+
+# Keep directory placeholders if you use them
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+
+# ---------------------------------------------------------
+# Model training artifacts
+# ---------------------------------------------------------
+
+# Model and optimizer checkpoints can be hundreds of MB
+checkpoints/
+
+# TensorBoard event files
+reports/tensorboard/
+
+# Temporary profiling output
+reports/profiling/
+
+# Common model-weight formats
+*.pt
+*.pth
+*.ckpt
+
+# Do not globally ignore .safetensors if you may later
+# intentionally publish a small final model with Git LFS.
+# Checkpoints are already excluded by checkpoints/.
+
+
+# ---------------------------------------------------------
+# Logs and temporary files
+# ---------------------------------------------------------
+
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+logs/
+tmp/
+temp/
+
+
+# ---------------------------------------------------------
+# macOS
+# ---------------------------------------------------------
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+
+# ---------------------------------------------------------
+# Editors
+# ---------------------------------------------------------
+
+.idea/
+.vscode/
+
+# Keep shared VS Code configuration if desired:
+# !.vscode/settings.json
+# !.vscode/extensions.json
