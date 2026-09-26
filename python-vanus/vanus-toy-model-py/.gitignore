@@ -2,6 +2,24 @@
 # Python
 # ---------------------------------------------------------
 
+uv.lock
+
+# Ignore everything generated inside checkpoints
+checkpoints/*
+
+# Preserve directory placeholder
+!checkpoints/.gitkeep
+
+# Allow checkpoint metadata directories and JSON files
+!checkpoints/step-*/
+checkpoints/step-*/*
+!checkpoints/step-*/*.json
+
+# Keep large checkpoint artifacts ignored
+checkpoints/step-*/model.safetensors
+checkpoints/step-*/optimizer.pt
+checkpoints/step-*/tokenizer.json
+
 __pycache__/
 *.py[cod]
 *$py.class

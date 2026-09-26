@@ -1,0 +1,1310 @@
+{
+  "checkpoint": "checkpoints/step-000010",
+  "training_state": {
+    "step": 10,
+    "tokens_seen": 163840,
+    "training_loss": 8.178087592124939,
+    "validation_loss": 8.162548875808715
+  },
+  "prompts": [
+    {
+      "prompt": "The cat walked into the",
+      "prompt_token_ids": [
+        426,
+        1563,
+        2164,
+        629,
+        210
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006976359523832798
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.004968807101249695
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.003183120395988226
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.0014579574344679713
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0011778243351727724
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0010078707709908485
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0009827886242419481
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.000970893248450011
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0009574673604220152
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.0006819505360908806
+        }
+      ],
+      "greedy": {
+        "complete_text": "The cat walked into the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "The cat walked into the of , thet , the ,ow the , \" that , , to withow o the to , theit to the ' the about o , the to . ,ow , , and the \"",
+        "continuation": " of , thet , the ,ow the , \" that , , to withow o the to , theit to the ' the about o , the to . ,ow , , and the \"",
+        "generated_token_ids": [
+          240,
+          218,
+          210,
+          88,
+          218,
+          210,
+          218,
+          290,
+          210,
+          218,
+          260,
+          309,
+          218,
+          218,
+          227,
+          300,
+          290,
+          219,
+          210,
+          227,
+          218,
+          210,
+          222,
+          227,
+          210,
+          310,
+          210,
+          692,
+          219,
+          218,
+          210,
+          227,
+          233,
+          218,
+          290,
+          218,
+          218,
+          225,
+          210,
+          260
+        ]
+      }
+    },
+    {
+      "prompt": "SQLite is a database that",
+      "prompt_token_ids": [
+        55,
+        53,
+        48,
+        626,
+        321,
+        208,
+        243,
+        223,
+        418,
+        693,
+        309
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006082492880523205
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.0035545015707612038
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.002622840227559209
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.001608351245522499
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.001079630688764155
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0010344729525968432
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0010069881100207567
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.000988063751719892
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.000904195592738688
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0008125794120132923
+        }
+      ],
+      "greedy": {
+        "complete_text": "SQLite is a database that the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "SQLite is a database thatow , the inim was the. .ly the , the , the that @-@ the it and,",
+        "continuation": "ow , the inim was the. .ly the , the , the that @-@ the it and,",
+        "generated_token_ids": [
+          290,
+          218,
+          210,
+          238,
+          267,
+          249,
+          210,
+          18,
+          233,
+          282,
+          210,
+          218,
+          210,
+          218,
+          210,
+          309,
+          313,
+          210,
+          297,
+          225,
+          16,
+          4
+        ]
+      }
+    },
+    {
+      "prompt": "The programmer fixed the bug by",
+      "prompt_token_ids": [
+        426,
+        2171,
+        579,
+        5882,
+        210,
+        3799,
+        342
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006420572753995657
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.005236031021922827
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.003336847759783268
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.001447791582904756
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0011287133675068617
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0009719848749227822
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.0009667596314102411
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0009462409070692956
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0009379267576150596
+        },
+        {
+          "id": 297,
+          "token": "Ġit",
+          "decoded": " it",
+          "probability": 0.0006111037801019847
+        }
+      ],
+      "greedy": {
+        "complete_text": "The programmer fixed the bug by the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "The programmer fixed the bug by the , T which the to , \" the . o the and .,reme T the to the the . \" ,ly . @-@ ' , of is . , the @-@ , the . with the",
+        "continuation": " the , T which the to , \" the . o the and .,reme T the to the the . \" ,ly . @-@ ' , of is . , the @-@ , the . with the",
+        "generated_token_ids": [
+          210,
+          218,
+          247,
+          465,
+          210,
+          227,
+          218,
+          260,
+          210,
+          233,
+          219,
+          210,
+          225,
+          233,
+          16,
+          4635,
+          247,
+          210,
+          227,
+          210,
+          210,
+          233,
+          260,
+          218,
+          282,
+          233,
+          313,
+          310,
+          218,
+          240,
+          321,
+          233,
+          218,
+          210,
+          313,
+          218,
+          210,
+          233,
+          300,
+          210
+        ]
+      }
+    },
+    {
+      "prompt": "A neural network learns when",
+      "prompt_token_ids": [
+        37,
+        552,
+        1552,
+        4421,
+        2725,
+        87,
+        635
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.005859384313225746
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.004854446277022362
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.0030125733464956284
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.0012933271937072277
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0012226810213178396
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0007951708394102752
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.0007625288562849164
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0007526472909376025
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.000725175894331187
+        },
+        {
+          "id": 313,
+          "token": "Ġ@-@",
+          "decoded": " @-@",
+          "probability": 0.0005689130048267543
+        }
+      ],
+      "greedy": {
+        "complete_text": "A neural network learns when the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "A neural network learns when , ' and the ,it , , the , , ,ie , the ,as theet such it the the is the , ,ly C the ,ior , ' , have , that it",
+        "continuation": " , ' and the ,it , , the , , ,ie , the ,as theet such it the the is the , ,ly C the ,ior , ' , have , that it",
+        "generated_token_ids": [
+          218,
+          310,
+          225,
+          210,
+          218,
+          222,
+          218,
+          218,
+          210,
+          218,
+          218,
+          218,
+          501,
+          218,
+          210,
+          218,
+          232,
+          210,
+          273,
+          908,
+          297,
+          210,
+          210,
+          321,
+          210,
+          218,
+          218,
+          282,
+          287,
+          210,
+          218,
+          77,
+          228,
+          218,
+          310,
+          218,
+          467,
+          218,
+          309,
+          297
+        ]
+      }
+    },
+    {
+      "prompt": "Question: Why is the sky blue?\nAnswer:",
+      "prompt_token_ids": [
+        53,
+        89,
+        366,
+        251,
+        30,
+        7398,
+        321,
+        210,
+        1846,
+        2079,
+        35,
+        170,
+        2304,
+        3080,
+        213,
+        30
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006200880277901888
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.004080305807292461
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.0025685783475637436
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.0015288310823962092
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.0011118818074464798
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0011105251032859087
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.0010400890605524182
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0010193448979407549
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0008733295253477991
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0008668279042467475
+        }
+      ],
+      "greedy": {
+        "complete_text": "Question: Why is the sky blue?\nAnswer: the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "Question: Why is the sky blue?\nAnswer: was , ofit the about .",
+        "continuation": " was , ofit the about .",
+        "generated_token_ids": [
+          249,
+          218,
+          240,
+          222,
+          210,
+          692,
+          233,
+          4
+        ]
+      }
+    },
+    {
+      "prompt": "User: Hello, how are you?\nAssistant:",
+      "prompt_token_ids": [
+        57,
+        87,
+        213,
+        30,
+        278,
+        3513,
+        16,
+        866,
+        408,
+        457,
+        35,
+        170,
+        2109,
+        87,
+        414,
+        425,
+        30
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006464020814746618
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.005739026702940464
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.002950733294710517
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.0014895704807713628
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0012304686242714524
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.001036916859447956
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.001001375145278871
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0009502036264166236
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0008888941956683993
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.0007401778711937368
+        }
+      ],
+      "greedy": {
+        "complete_text": "User: Hello, how are you?\nAssistant: the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "User: Hello, how are you?\nAssistant: , to. to of toowap . the , was to the C , and p , . and the to . \" , . which , a. new . you the o.ow the,",
+        "continuation": " , to. to of toowap . the , was to the C , and p , . and the to . \" , . which , a. new . you the o.ow the,",
+        "generated_token_ids": [
+          218,
+          227,
+          18,
+          227,
+          240,
+          227,
+          290,
+          431,
+          233,
+          210,
+          218,
+          249,
+          227,
+          210,
+          287,
+          218,
+          225,
+          234,
+          218,
+          233,
+          225,
+          210,
+          227,
+          233,
+          260,
+          218,
+          233,
+          465,
+          218,
+          208,
+          18,
+          611,
+          233,
+          457,
+          210,
+          219,
+          18,
+          290,
+          210,
+          16
+        ]
+      }
+    },
+    {
+      "prompt": "Nuclear energy can be used to",
+      "prompt_token_ids": [
+        50,
+        3861,
+        229,
+        3854,
+        574,
+        285,
+        925,
+        227
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006496000103652477
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.003853767877444625
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.0030974531546235085
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.0018854859517887235
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0011465831194072962
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.000957604730501771
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.0008880801033228636
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0008269266691058874
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0007971764425747097
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0007238283869810402
+        }
+      ],
+      "greedy": {
+        "complete_text": "Nuclear energy can be used to the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "Nuclear energy can be used to that . of , , , with you to to . St , the to the, to \" ,as of to. to and the is , N the T the . of St the, the to",
+        "continuation": " that . of , , , with you to to . St , the to the, to \" ,as of to. to and the is , N the T the . of St the, the to",
+        "generated_token_ids": [
+          309,
+          233,
+          240,
+          218,
+          218,
+          218,
+          300,
+          457,
+          227,
+          227,
+          233,
+          505,
+          218,
+          210,
+          227,
+          210,
+          16,
+          227,
+          260,
+          218,
+          232,
+          240,
+          227,
+          18,
+          227,
+          225,
+          210,
+          321,
+          218,
+          358,
+          210,
+          247,
+          210,
+          233,
+          240,
+          505,
+          210,
+          16,
+          210,
+          227
+        ]
+      }
+    },
+    {
+      "prompt": "The robot entered the room and",
+      "prompt_token_ids": [
+        426,
+        7972,
+        3471,
+        210,
+        1285,
+        225
+      ],
+      "top_next_tokens": [
+        {
+          "id": 210,
+          "token": "Ġthe",
+          "decoded": " the",
+          "probability": 0.006179402582347393
+        },
+        {
+          "id": 218,
+          "token": "Ġ,",
+          "decoded": " ,",
+          "probability": 0.004240311682224274
+        },
+        {
+          "id": 233,
+          "token": "Ġ.",
+          "decoded": " .",
+          "probability": 0.00281770178116858
+        },
+        {
+          "id": 227,
+          "token": "Ġto",
+          "decoded": " to",
+          "probability": 0.001459943363443017
+        },
+        {
+          "id": 225,
+          "token": "Ġand",
+          "decoded": " and",
+          "probability": 0.0012108336668461561
+        },
+        {
+          "id": 240,
+          "token": "Ġof",
+          "decoded": " of",
+          "probability": 0.0012032415252178907
+        },
+        {
+          "id": 260,
+          "token": "Ġ\"",
+          "decoded": " \"",
+          "probability": 0.0010526125552132726
+        },
+        {
+          "id": 309,
+          "token": "Ġthat",
+          "decoded": " that",
+          "probability": 0.0009747114381752908
+        },
+        {
+          "id": 310,
+          "token": "Ġ'",
+          "decoded": " '",
+          "probability": 0.0009283624240197241
+        },
+        {
+          "id": 18,
+          "token": ".",
+          "decoded": ".",
+          "probability": 0.0008526438032276928
+        }
+      ],
+      "greedy": {
+        "complete_text": "The robot entered the room and the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "continuation": " the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the the",
+        "generated_token_ids": [
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210,
+          210
+        ]
+      },
+      "sampled": {
+        "complete_text": "The robot entered the room and , ,reme . , ) the , \" , ' suchap where , . to ) about have toas the is , , the claim . . the ands the the haveim , theet",
+        "continuation": " , ,reme . , ) the , \" , ' suchap where , . to ) about have toas the is , , the claim . . the ands the the haveim , theet",
+        "generated_token_ids": [
+          218,
+          218,
+          4635,
+          233,
+          218,
+          359,
+          210,
+          218,
+          260,
+          218,
+          310,
+          908,
+          431,
+          820,
+          218,
+          233,
+          227,
+          359,
+          692,
+          467,
+          227,
+          232,
+          210,
+          321,
+          218,
+          218,
+          210,
+          1939,
+          233,
+          233,
+          210,
+          225,
+          87,
+          210,
+          210,
+          467,
+          267,
+          218,
+          210,
+          273
+        ]
+      }
+    }
+  ]
+}
